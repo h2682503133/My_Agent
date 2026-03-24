@@ -1,0 +1,14 @@
+{
+  "main": {
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "model": "qwen3-vl:235b-cloud"
+  },
+  "tool": {
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "model": "MFDoom/deepseek-r1-tool-calling:14b"
+  },
+  "reader": {
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "model": "MFDoom/deepseek-r1-tool-calling:14b"
+  }
+}

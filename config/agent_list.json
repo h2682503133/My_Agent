@@ -1,14 +1,24 @@
 {
   "main": {
     "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "qwen3-vl:235b-cloud"
+    "model": "qwen3-vl:235b-cloud",
+    "files": [
+      "SOUL.md"
+    ]
   },
   "tool": {
     "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "MFDoom/deepseek-r1-tool-calling:14b"
+    "model": "MFDoom/deepseek-r1-tool-calling:14b",
+    "files": [
+      "SOUL.md",
+      "TOOL.md"
+    ]
   },
   "reader": {
     "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "MFDoom/deepseek-r1-tool-calling:14b"
+    "model": "MFDoom/deepseek-r1-tool-calling:14b",
+    "files": [
+      "SOUL.md"
+    ]
   }
 }

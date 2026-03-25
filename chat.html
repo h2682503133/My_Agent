@@ -1,10 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>智能体对话界面</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif}
+        body{background:#f0f2f5;padding:20px}
+        .chat{max-width:700px;margin:auto;background:#fff;border-radius:12px; height:90vh;display:flex;flex-direction:column}
+        .messages{flex:1;padding:20px;overflow-y:auto;background:#f7f8fa}
+        .msg{display:flex;margin-bottom:12px}
+        .user{justify-content:flex-end}
+        .bot{justify-content:flex-start}
+        .bubble{
+            padding:10px 14px;border-radius:16px;
+            max-width:75%;line-height:1.5;
+            white-space:pre-wrap
+        }
+        .user .bubble{background:#007aff;color:#fff}
+        .bot .bubble{background:#fff;border:1px solid #ddd}
+        .agent-tag{
+            font-size:12px;color:#666;
+            margin-bottom:4px;margin-left:4px
+        }
+    </style>
 </head>
 <body>
-$END$
+    <div class="chat">
+        <div id="messages" class="messages"></div>
+    </div>
+
+    <script>
+        async function loadChat() {
+            const r = await fetch("chat_log.json?t=" + Date.now())
+            const list = await r.json()
+            const box = document.getElementById("messages")
+            box.innerHTML = ""
+
+            list.forEach(item => {
+                const isUser = item.role === "user"
+                const msgDiv = document.createElement("div")
+                msgDiv.className = "msg " + (isUser ? "user" : "bot")
+
+                // 显示智能体ID
+                const tag = document.createElement("div")
+                tag.className = "agent-tag"
+                tag.innerText = isUser ? "[你]" : `[${item.agent_id}]`
+
+                const bubble = document.createElement("div")
+                bubble.className = "bubble"
+                bubble.innerText = item.content
+
+                if (!isUser) msgDiv.appendChild(tag)
+                msgDiv.appendChild(bubble)
+                if (isUser) msgDiv.appendChild(tag)
+
+                box.appendChild(msgDiv)
+            })
+
+            box.scrollTop = box.scrollHeight
+        }
+
+        window.onload = loadChat
+        setInterval(loadChat, 1500)
+    </script>
 </body>
 </html>

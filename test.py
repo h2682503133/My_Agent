@@ -1,35 +1,35 @@
-import os
+import sqlite3
+import json
 
-# 第一步：必须先指定配置文件（你自己的路径）
-os.environ["OPENVIKING_CONFIG_FILE"] = r"D:\DuanKou\tools\My_Agent\ov.conf"
+# 你的数据库路径
+DB_PATH = r"D:\DuanKou\tools\My_Agent\viking_data\viking\sqlite.db"
 
-# 第二步：导入官方库
-import openviking as ov
+def view_viking_history():
+    print("🔍 直接读取 Viking 本地上下文（不依赖任何库）\n")
 
-# 第三步：官方初始化（完全按你给的示例写）
-print("正在初始化 OpenViking...")
-client = ov.OpenViking(path="./test_data")
-client.initialize()
-print("✅ 初始化成功！")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, session_id, role, parts, created_at FROM messages ORDER BY created_at")
+        rows = cursor.fetchall()
 
-# 第四步：创建官方会话
-print("创建会话...")
-session = client.create_session()
-print(f"✅ 会话创建成功，ID: {session.id}")
+        if not rows:
+            print("📭 暂无历史记录")
+            return
 
-# 第五步：添加消息
-print("添加测试对话...")
-client.add_message(session.id, "user", "你好")
-client.add_message(session.id, "assistant", "你好！我是智能助手！")
-client.commit_session(session.id)
-print("✅ 对话保存成功！")
+        for r in rows:
+            msg_id, session_id, role, parts, created_at = r
+            try:
+                content = json.loads(parts)[0]["text"]
+            except:
+                content = parts
 
-# 第六步：读取历史消息
-print("\n===== 读取历史对话 =====")
-messages = client.get_messages(session.id)
-for msg in messages:
-    print(f"{msg['role']}: {msg['content']}")
+            print(f"[{session_id}] {role}: {content.strip()[:150]}")
+            print("-" * 80)
 
-# 结束
-print("\n🎉 OpenViking 测试全部通过！能存、能读、正常工作！")
-client.close()
+        conn.close()
+    except Exception as e:
+        print(f"❌ 读取失败: {e}")
+
+if __name__ == "__main__":
+    view_viking_history()

@@ -1,3 +1,4 @@
+
 def parse_syntax(self, raw_text):
     reply = raw_text
     command = ""
@@ -9,11 +10,10 @@ def parse_syntax(self, raw_text):
 
         # 统一把半角、全角冒号都换成全角，保证解析一致
         line = line.replace(":", "：")
-        line = line.replace("，", ",")
 
         if line.startswith("对话："):
             content = line.replace("对话：", "").strip()
-            parts = [p.strip() for p in content.split(",") if p.strip()]
+            parts = [p.strip() for p in content.split(" ") if p.strip()]
 
             # 必须 ≥2 段：第1段=目标ID，第2段=内容
             if len(parts) >= 2:
@@ -27,12 +27,25 @@ def parse_syntax(self, raw_text):
         elif line.startswith("命令："):
             command = line.replace("命令：", "").strip()
 
+        elif line.startswith("切换："):
+            agent_id = line.replace("切换：", "").strip()
+            self.set_default_agent(agent_id)
+        elif "切换到" in line and "智能体" in line:
+            import re
+            # 正则提取：切换到(XXX)智能体 → 拿到XXX
+            match = re.search(r"切换到(\w+)智能体", line)
+            if match:
+                agent_id = match.group(1).strip()
+                self.set_default_agent(agent_id)
+
     # 三个分支
     agent_result = ""
     command_result = ""
 
     if agent_call:
+        from core.Agent import Agent
         agent_result = self.call_agent(agent_call["target_id"], agent_call["content"])
+        agent_result = Agent.get_agent(agent_call["target_id"]).call_agent(self.agent_id, agent_result)
 
     if command:
         command_result = self._run_shell_command(command)

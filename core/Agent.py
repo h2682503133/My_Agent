@@ -75,8 +75,8 @@ class Agent:
     @classmethod
     def user_chat(cls,user_input):
         target = Agent.get_agent(Agent.default_agent)
-        target.add_message("user", user_input)
-        result = target.chat(user_input)
+        result = target.chat("user",user_input)
+        target.add_message("user","<user>" +user_input)
         target.add_message("assistant", result["agent_reply"])
         return result
 
@@ -89,13 +89,21 @@ class Agent:
             import asyncio
             ctx = asyncio.run(self.ov_session.get_context_for_search(query=query))
             messages = []
-            # 仅保留最近4条 + 清理脏数据
+            # 仅保留最近16条 + 清理脏数据
             for msg in ctx["current_messages"][-16:]:
                 content = msg.parts[0].text
                 content = re.sub(r'</?think>', '', content).strip()
                 if content and '智能体返回：' not in content:
                     messages.append({"role": msg.role, "content": content})
-            return messages
+
+            # ✅【正确做法】在最前面插入一条系统提示，告诉模型这是历史记录
+            if messages:
+                messages.insert(0, {
+                    "role": "system",
+                    "content": "以下是你和用户的历史对话记录，请根据上下文继续回答"
+                })
+
+            return messages  # 👈 保持返回数组，模型完全识别
         except:
             return []
 
@@ -134,7 +142,7 @@ class Agent:
         self.system_prompt = "\n\n".join(parts)
 
     # ==================== 核心对话流程 ====================
-    def chat(self,user_input):
+    def chat(self,caller,user_input):
         """单轮对话主流程（支持自调用）"""
 
         # 2. 同步获取上下文（无异步！）
@@ -144,6 +152,7 @@ class Agent:
         #self.history.append({"role": "user", "content": user_input})
         # messages = [{"role": "system", "content": self.system_prompt}] + history
         messages = [{"role": "system", "content": self.system_prompt}] + context
+        messages += [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分"}] + [{"role": "user", "content":f"<{caller}>"+user_input}]
         # 2. 调用大模型
         api_url = self.config["api_url"]
         model = self.config["model"]
@@ -181,7 +190,7 @@ class Agent:
         print(f"{self.agent_id}->{target_agent_id}\n",content)
         """调用另一个智能体，内部会触发 chat()，支持自调用"""
         target_agent = Agent.get_agent(target_agent_id)
-        result = target_agent.chat(content)
+        result = target_agent.chat(self.agent_id,content)
         return result["agent_reply"]
 
     # ==================== 通用命令执行（CMD/Codex） ====================
@@ -196,17 +205,23 @@ class Agent:
                 capture_output=True,
                 text=False,  # 重要：关闭文本模式
             )
-            # 手动解码：先试 utf8，失败自动用 gbk，不抛错
-            try:
-                stdout = result.stdout.decode("utf-8")
-            except:
-                stdout = result.stdout.decode("gbk")
+            def safe_decode(data):
+                try:
+                    return data.decode("utf-8").strip()
+                except:
+                    return data.decode("gbk", errors="replace").strip()
 
-            try:
-                stderr = result.stderr.decode("utf-8")
-            except:
-                stderr = result.stderr.decode("gbk")
+            stdout = safe_decode(result.stdout)
+            stderr = safe_decode(result.stderr)
+            output = (stdout + "\n" + stderr).strip()
 
-            return stdout + stderr
+            if not output:
+                if result.returncode == 0:
+                    return "命令执行成功"
+                else:
+                    return "命令执行失败"
+
+            return output
+
         except Exception as e:
             return f"执行失败：{str(e)}"

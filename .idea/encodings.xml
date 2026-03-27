@@ -2,7 +2,7 @@
 <project version="4">
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/core/agent_chat.py" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/core/codex_call.py" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/core/codex_call.py" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/main.py" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/system_prompt/main/IDENTITY.md" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/system_prompt/main/SOUL.md" charset="UTF-8" />
@@ -12,5 +12,6 @@
     <file url="file://$PROJECT_DIR$/system_prompt/reader/SOUL.md" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/system_prompt/tool/SOUL.md" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/system_prompt/tool/TOOL.md" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/system_prompt/模板/USER.md" charset="GBK" />
   </component>
 </project>

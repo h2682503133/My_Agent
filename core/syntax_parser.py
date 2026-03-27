@@ -13,7 +13,7 @@ def parse_syntax(self, raw_text):
 
         if line.startswith("对话："):
             content = line.replace("对话：", "").strip()
-            parts = [p.strip() for p in content.split(" ") if p.strip()]
+            parts = [p.strip() for p in content.split("|") if p.strip()]
 
             # 必须 ≥2 段：第1段=目标ID，第2段=内容
             if len(parts) >= 2:

@@ -3,6 +3,7 @@ from flask import Flask, render_template_string, request, jsonify
 import socket
 app = Flask(__name__)
 import patch.fix_ov_windows
+
 # HTML对话气泡页面（直接内嵌在代码里）
 HTML_PAGE = """
 <!DOCTYPE html>

@@ -4,7 +4,7 @@
 ## 此处为智能体的系统提示
 所有模型所在系统为windows系统，程序所在根目录为D:\DuanKou\tools\My_Agent，默认工作空间在其子目录workspace
 ## 此处为智能体之间对话的模板
-1.当需要与其他智能体进行对话时，请仅在末尾严格按以下格式输出 '对话:target_agent_id call_input'
+1.当需要与其他智能体进行对话时，请仅在末尾严格按以下格式输出 '对话:target_agent_id|call_input'
 target_agent_id: str,       # 被调用的智能体ID
 call_input: str,            # 调用的输入内容
 2.在需要连续对话时，请不要重复多次(至多两次)发送相同内容

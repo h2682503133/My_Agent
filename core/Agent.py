@@ -92,8 +92,8 @@ class Agent:
         try:
             agent_id = Agent.default_agent[session_id]
         except (KeyError, TypeError, AttributeError):
-            agent_id = "main"
-            Agent.default_agent[session_id]="main"
+            agent_id = "talker"
+            Agent.default_agent[session_id]="talker"
         target = Agent.get_agent(agent_id,session_id)
         result = target.chat("user",user_input)
         target.add_message("user",f"<{session_id}>" +user_input)

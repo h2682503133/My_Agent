@@ -5,24 +5,13 @@ def call_codex(prompt: str, working_dir: str):
     def win_to_wsl_path(path):
         if path.startswith("/mnt/"):
             return path
-
-            # 👇 统一全角冒号 → 半角冒号（核心兼容）
         path = path.replace("：", ":")
-
-        # 👇 按第一个半角冒号分割（你要的逻辑）
         parts = path.split(":", 1)
         if len(parts) < 2:
             return path
-
-        # 盘符
         drive_letter = parts[0].lower()
-
-        # 剩余路径
         rest = parts[1]
-
-        # 统一斜杠
         rest = rest.replace("\\", "/")
-
         # 最终WSL路径
         return f"/mnt/{drive_letter}{rest}"
 

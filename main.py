@@ -1,5 +1,7 @@
 import queue
 import time
+import datetime
+import os
 import threading
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
 from functools import wraps
@@ -18,6 +20,7 @@ TASK_QUEUE = queue.Queue(maxsize=100)
 MAX_RETRY = 2
 MAX_TASK_TIME = 120
 
+from core.logger import gateway_log
 # ======================
 # SSE 队列推送
 # ======================
@@ -53,6 +56,7 @@ def queue_and_retry(func):
         ip = request.remote_addr
         now = time.strftime("%d/%b/%Y %H:%M:%S")
         print(f'{ip} - - [{now}] "{request.method} {request.path}" - 请求进入FIFO队列')
+        gateway_log(f'{ip} - - [{now}] "{request.method} {request.path}" - 请求进入FIFO队列')
 
         user_id = session.get("user_id")
         user_msg = request.json.get("msg")
@@ -90,8 +94,8 @@ def fifo_scheduler():
             func, args, kwargs, callback , user_id = TASK_QUEUE.get(timeout=0.5)
         except queue.Empty:
             continue
-
         print(f"[FIFO] 开始处理任务 → 用户ID: {user_id}")
+        gateway_log(f"[FIFO] 开始处理任务 → 用户ID: {user_id}")
         success = False
         res = None
 
@@ -104,10 +108,12 @@ def fifo_scheduler():
                 break
             except Exception as e:
                 print(f"[失败] 第{retry_idx+1}次重试")
+                gateway_log(f"[失败] 第{retry_idx + 1}次重试")
                 continue
 
         callback(success, res)
         TASK_QUEUE.task_done()
+        gateway_log(f"[FIFO] 任务已完成 → 用户ID: {user_id}")
 
 # 启动单线程调度器
 threading.Thread(target=fifo_scheduler, daemon=True).start()
@@ -162,5 +168,7 @@ def get_local_ip():
 
 if __name__ == "__main__":
     ip = get_local_ip()
+
+    gateway_log(f"网关在 http://{ip}:5000 启动")
     print(f"✅ 局域网访问地址：http://{ip}:5000")
     app.run(host='0.0.0.0', port=5000, debug=False)

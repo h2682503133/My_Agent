@@ -11,6 +11,8 @@ from core.response_parser import parse_response
 from core.syntax_parser import parse_syntax
 import openviking as ov
 from openviking.message import TextPart
+
+from core.logger import debug_log,chat_log
 class Agent:
     # 静态变量：全局主程序根目录（所有命令执行依赖此路径）
     BASE_ROOT_DIR = Path(__file__).parent.parent
@@ -52,9 +54,9 @@ class Agent:
         try:
             # 单独开循环执行异步load，不影响主程序
             asyncio.run(self.ov_session.load())
-            print(f"加载历史会话成功: {self.agent_id}_{self.session_id}")
+            debug_log(f"加载历史会话成功: {self.agent_id}_{self.session_id}")
         except:
-            print("创建新会话")
+            debug_log("创建新会话")
 
     @classmethod
     def get_agent(cls, agent_id: str, session_id) -> "Agent":
@@ -78,12 +80,12 @@ class Agent:
             # 获取字典第一个（最旧）键
             oldest_key = next(iter(cls._agent_instances))
             del cls._agent_instances[oldest_key]
-            print(f"[实例上限] 删除最久未使用: {oldest_key}")
+            debug_log(f"[实例上限] 删除最久未使用: {oldest_key}")
 
         # 新建实例并存储
         agent = cls(agent_id, session_id)
         cls._agent_instances[key] = agent
-        print(f"{session_id} 新建智能体: {agent_id}")
+        debug_log(f"{session_id} 新建智能体: {agent_id}")
 
         return agent
 
@@ -95,6 +97,8 @@ class Agent:
             agent_id = "talker"
             Agent.default_agent[session_id]="talker"
         target = Agent.get_agent(agent_id,session_id)
+        chat_log(f"{session_id}->{target.agent_id}\n{user_input}")
+        chat_log(f"[user_chat]{session_id}->{target.agent_id}")
         result = target.chat("user",user_input)
         target.add_message("user",f"<{session_id}>" +user_input)
         target.add_message("assistant", result["agent_reply"])
@@ -196,7 +200,7 @@ class Agent:
         # 5. 更新历史
         #self.history.append({"role": "assistant", "content": result["final_reply"]})
 
-
+        chat_log(f"{self.agent_id} 回复:\n {result['final_reply']}")
         # 6. 返回结构化结果
         return {
             "agent_reply": result["final_reply"],
@@ -207,7 +211,8 @@ class Agent:
 
     # ==================== 智能体调用 ====================
     def call_agent(self, target_agent_id, content):
-        print(f"{self.agent_id}->{target_agent_id}\n",content)
+        chat_log(f"{self.agent_id}->{target_agent_id}\n"+content)
+        debug_log(f"[agent_call] {self.agent_id}->{target_agent_id}")
         """调用另一个智能体，内部会触发 chat()，支持自调用"""
         target_agent = Agent.get_agent(target_agent_id,self.session_id)
         result = target_agent.chat(self.agent_id,content)
@@ -216,7 +221,7 @@ class Agent:
     # ==================== 通用命令执行（CMD/Codex） ====================
     def _run_shell_command(self, command):
         """执行系统命令，依赖静态主路径，源代码完全保留"""
-        print(self.agent_id,"[执行命令]:",command)
+        debug_log(f"[command]: {self.agent_id} {command}")
         try:
             result = subprocess.run(
                 command,

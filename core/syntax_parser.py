@@ -45,7 +45,7 @@ def parse_syntax(self, raw_text):
     if agent_call:
         from core.Agent import Agent
         agent_result = self.call_agent(agent_call["target_id"], agent_call["content"])
-        agent_result = Agent.get_agent(agent_call["target_id"]).call_agent(self.agent_id, agent_result)
+        agent_result = Agent.get_agent(agent_call["target_id"],self.session_id).call_agent(self.agent_id, agent_result)
 
     if command:
         command_result = self._run_shell_command(command)

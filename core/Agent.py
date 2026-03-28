@@ -4,8 +4,8 @@ from pathlib import Path
 import requests
 import asyncio
 import re
-
-from typing_inspection.typing_objects import target
+from collections import OrderedDict
+#from typing_inspection.typing_objects import target
 
 from core.response_parser import parse_response
 from core.syntax_parser import parse_syntax
@@ -14,8 +14,9 @@ from openviking.message import TextPart
 class Agent:
     # 静态变量：全局主程序根目录（所有命令执行依赖此路径）
     BASE_ROOT_DIR = Path(__file__).parent.parent
-    _agent_instances: dict[str, "Agent"] = {}
-    default_agent="main"
+    MAX_INSTANCES = 20
+    _agent_instances: OrderedDict[str, "Agent"] = OrderedDict()
+    default_agent={}
 
     parse_response = parse_response
     parse_syntax = parse_syntax
@@ -43,7 +44,7 @@ class Agent:
 
         self.ov_client = ov.OpenViking(path="./viking_data")
         self.ov_client.initialize()
-        self.ov_session = self.ov_client.session(session_id=self.session_id)
+        self.ov_session = self.ov_client.session(session_id=f"{self.agent_id}_{self.session_id}")
 
         self._load_viking_session()
 
@@ -51,37 +52,56 @@ class Agent:
         try:
             # 单独开循环执行异步load，不影响主程序
             asyncio.run(self.ov_session.load())
-            print(f"加载历史会话成功: {self.session_id}")
+            print(f"加载历史会话成功: {self.agent_id}_{self.session_id}")
         except:
             print("创建新会话")
 
     @classmethod
-    def get_agent(cls, agent_id: str) -> "Agent":
+    def get_agent(cls, agent_id: str, session_id) -> "Agent":
         """
         智能体实例管理：
-        1. 传入智能体ID
+        1. 传入智能体ID + session_id
         2. 存在则直接返回实例
-        3. 不存在则新建实例并加入字典
+        3. 不存在则新建
+        4. 超过上限 → 删除最旧的实例
         """
-        if agent_id in cls._agent_instances:
-            return cls._agent_instances[agent_id]
+        key = f"{session_id}_{agent_id}"
+
+        # 存在就直接返回
+        if key in cls._agent_instances:
+            # 刷新到最新位置
+            cls._agent_instances.move_to_end(key)
+            return cls._agent_instances[key]
+
+        # 超过最大数量，删除最旧的
+        if len(cls._agent_instances) >= cls.MAX_INSTANCES:
+            # 获取字典第一个（最旧）键
+            oldest_key = next(iter(cls._agent_instances))
+            del cls._agent_instances[oldest_key]
+            print(f"[实例上限] 删除最久未使用: {oldest_key}")
 
         # 新建实例并存储
-        agent = cls(agent_id)
-        cls._agent_instances[agent_id] = agent
-        print(f"新建智能体: {agent_id}")
+        agent = cls(agent_id, session_id)
+        cls._agent_instances[key] = agent
+        print(f"{session_id} 新建智能体: {agent_id}")
+
         return agent
 
     @classmethod
-    def user_chat(cls,user_input):
-        target = Agent.get_agent(Agent.default_agent)
+    def user_chat(cls,user_input,session_id):
+        try:
+            agent_id = Agent.default_agent[session_id]
+        except (KeyError, TypeError, AttributeError):
+            agent_id = "main"
+            Agent.default_agent[session_id]="main"
+        target = Agent.get_agent(agent_id,session_id)
         result = target.chat("user",user_input)
-        target.add_message("user","<user>" +user_input)
+        target.add_message("user",f"<{session_id}>" +user_input)
         target.add_message("assistant", result["agent_reply"])
         return result
 
     def set_default_agent(self,agent_id):
-        Agent.default_agent=agent_id
+        Agent.default_agent[self.session_id]=agent_id
 
     def get_context_sync(self, query: str):
         """同步版本：从当前会话获取上下文"""
@@ -189,7 +209,7 @@ class Agent:
     def call_agent(self, target_agent_id, content):
         print(f"{self.agent_id}->{target_agent_id}\n",content)
         """调用另一个智能体，内部会触发 chat()，支持自调用"""
-        target_agent = Agent.get_agent(target_agent_id)
+        target_agent = Agent.get_agent(target_agent_id,self.session_id)
         result = target_agent.chat(self.agent_id,content)
         return result["agent_reply"]
 

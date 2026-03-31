@@ -13,6 +13,10 @@ import openviking as ov
 from openviking.message import TextPart
 
 from core.logger import debug_log,chat_log
+
+GLOBAL_VIKING_CLIENT = ov.OpenViking(path="./viking_data")
+GLOBAL_VIKING_CLIENT.initialize()
+
 class Agent:
     # 静态变量：全局主程序根目录（所有命令执行依赖此路径）
     BASE_ROOT_DIR = Path(__file__).parent.parent
@@ -44,13 +48,13 @@ class Agent:
         self.load_config()
         self.build_system_prompt()
 
-        self.ov_client = ov.OpenViking(path="./viking_data")
-        self.ov_client.initialize()
+        self.ov_client = GLOBAL_VIKING_CLIENT
         self.ov_session = self.ov_client.session(session_id=f"{self.agent_id}_{self.session_id}")
 
         self._load_viking_session()
 
     def _load_viking_session(self):
+        print("加载viking")
         try:
             # 单独开循环执行异步load，不影响主程序
             asyncio.run(self.ov_session.load())
@@ -98,7 +102,7 @@ class Agent:
             Agent.default_agent[session_id]="talker"
         target = Agent.get_agent(agent_id,session_id)
         chat_log(f"{session_id}->{target.agent_id}\n{user_input}")
-        chat_log(f"[user_chat]{session_id}->{target.agent_id}")
+        debug_log(f"[user_chat]{session_id}->{target.agent_id}")
         result = target.chat("user",user_input)
         target.add_message("user",f"<{session_id}>" +user_input)
         target.add_message("assistant", result["agent_reply"])
@@ -211,8 +215,8 @@ class Agent:
 
     # ==================== 智能体调用 ====================
     def call_agent(self, target_agent_id, content):
-        chat_log(f"{self.agent_id}->{target_agent_id}\n"+content)
-        debug_log(f"[agent_call] {self.agent_id}->{target_agent_id}")
+        chat_log(f"<{self.session_id}>:{self.agent_id}->{target_agent_id}\n"+content)
+        debug_log(f"[agent_call] <{self.session_id}>:{self.agent_id}->{target_agent_id}")
         """调用另一个智能体，内部会触发 chat()，支持自调用"""
         target_agent = Agent.get_agent(target_agent_id,self.session_id)
         result = target_agent.chat(self.agent_id,content)

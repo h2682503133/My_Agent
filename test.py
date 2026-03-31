@@ -1,35 +1,28 @@
-import sqlite3
-import json
+import asyncio
+from satori import EventType
+from satori.event import MessageEvent
+from satori.client import Account, App, WebsocketsInfo
 
-# 你的数据库路径
-DB_PATH = r"D:\DuanKou\tools\My_Agent\viking_data\viking\sqlite.db"
+async def main():
+    app = App(WebsocketsInfo(
+        host="127.0.0.1",
+        port=5600,    # LLBot 默认端口
+        token=""      # 默认为空
+    ))
 
-def view_viking_history():
-    print("🔍 直接读取 Viking 本地上下文（不依赖任何库）\n")
+    @app.register_on(EventType.MESSAGE_CREATED)
+    async def on_message(account: Account, event: MessageEvent):
+        # 打印消息
+        print(f"[{event.user.id}] {event.message.content}")
 
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, session_id, role, parts, created_at FROM messages ORDER BY created_at")
-        rows = cursor.fetchall()
+        # 自动回复（真正机器人功能）
+        if event.message.content == "hello":
+            await account.send(event.channel, "你好！我是机器人！")
 
-        if not rows:
-            print("📭 暂无历史记录")
-            return
+        if event.message.content == "测试":
+            await account.send(event.channel, "测试成功！运行正常！")
 
-        for r in rows:
-            msg_id, session_id, role, parts, created_at = r
-            try:
-                content = json.loads(parts)[0]["text"]
-            except:
-                content = parts
-
-            print(f"[{session_id}] {role}: {content.strip()[:150]}")
-            print("-" * 80)
-
-        conn.close()
-    except Exception as e:
-        print(f"❌ 读取失败: {e}")
+    await app.run_async()
 
 if __name__ == "__main__":
-    view_viking_history()
+    asyncio.run(main())

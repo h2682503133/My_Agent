@@ -218,3 +218,5 @@ __marimo__/
 
 viking_data/
 workspace/
+logs/
+core/__pycache__/

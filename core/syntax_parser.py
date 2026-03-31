@@ -68,6 +68,7 @@ def parse_syntax(self, raw_text):
         agent_result = Agent.get_agent(agent_call["target_id"], self.session_id).call_agent(self.agent_id, agent_result)
         reply = agent_result
 
+    # 统一 return，完全复用
     return {
         "final_reply": reply,
         "reply": raw_text.strip(),

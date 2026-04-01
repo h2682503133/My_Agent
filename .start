@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
+
+export PYTHONPATH="$ROOT_DIR"
+export ENV="${ENV:-production}"
+
+if [ -f "viking_data/.openviking.pid" ]; then
+  rm -f "viking_data/.openviking.pid"
+  echo "[startup] cleaned stale OpenViking pid file"
+fi
+
+echo "[startup] launching current architecture via main.py"
+exec python main.py

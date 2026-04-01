@@ -42,6 +42,8 @@ class Task:
 
         # ==================== 记忆日志（用于总结反思） ====================
         self.memory_log = []
+        # 临时对话输入：用于弹栈后的回传对话，不改变 content
+        self.temp_dialog_input = None
 
     # ==================== 上下文栈操作方法 ====================
     def push_context(self, from_obj, input_text: str) -> None:
@@ -55,6 +57,19 @@ class Task:
         """出栈：移除当前层，栈底可删除"""
         if self.agent_context:
             return self.agent_context.pop()
+        return None
+
+    def set_temp_dialog_input(self, input_text: str) -> None:
+        """写入一轮临时对话输入（一次性消费）"""
+        self.temp_dialog_input = input_text
+
+    def consume_temp_dialog_input(self) -> str | None:
+        """读取并清空临时对话输入"""
+        if isinstance(self.temp_dialog_input, str):
+            value = self.temp_dialog_input
+            self.temp_dialog_input = None
+            return value
+        self.temp_dialog_input = None
         return None
 
     # ==================== 静态方法：管理暂停任务 ====================

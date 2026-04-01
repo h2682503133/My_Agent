@@ -13,6 +13,7 @@ import openviking as ov
 from openviking.message import TextPart
 
 from core.logger import debug_log,chat_log
+from core.Tools import tool_manager
 
 GLOBAL_VIKING_CLIENT = ov.OpenViking(path="./viking_data")
 GLOBAL_VIKING_CLIENT.initialize()
@@ -223,34 +224,6 @@ class Agent:
         return result["agent_reply"]
 
     # ==================== 通用命令执行（CMD/Codex） ====================
-    def _run_shell_command(self, command):
-        """执行系统命令，依赖静态主路径，源代码完全保留"""
-        debug_log(f"[command]: {self.agent_id} {command}")
-        try:
-            result = subprocess.run(
-                command,
-                cwd=self.BASE_ROOT_DIR / "workspace",
-                shell=True,
-                capture_output=True,
-                text=False,  # 重要：关闭文本模式
-            )
-            def safe_decode(data):
-                try:
-                    return data.decode("utf-8").strip()
-                except:
-                    return data.decode("gbk", errors="replace").strip()
-
-            stdout = safe_decode(result.stdout)
-            stderr = safe_decode(result.stderr)
-            output = (stdout + "\n" + stderr).strip()
-
-            if not output:
-                if result.returncode == 0:
-                    return "命令执行成功"
-                else:
-                    return "命令执行失败"
-
-            return output
-
-        except Exception as e:
-            return f"执行失败：{str(e)}"
+    def run_tool(self, tool_name: str, *args, **kwargs):
+        """Skill 内部调用工具的统一入口"""
+        return tool_manager.run_tool(tool_name, *args, **kwargs)

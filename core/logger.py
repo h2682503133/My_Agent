@@ -1,4 +1,3 @@
-# core/logger.py
 import os
 import time
 import datetime
@@ -15,34 +14,28 @@ LOG_PORT = 5001
 chat_conn = None  # 模型日志窗口
 debug_conn = None  # 任务/队列日志窗口
 
-
 # ======================
 # 日志服务（支持双客户端）
 # ======================
 def log_server():
     global chat_conn, debug_conn
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((LOG_HOST, LOG_PORT))
+        server.listen(2)
+        print("[日志服务] 已启动，等待双客户端连接...")
 
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((LOG_HOST, LOG_PORT))
-    server.listen(2)  # 允许 2 个连接
-    print("[日志服务] 等待双客户端连接...")
-
-    while True:
-        conn, addr = server.accept()
-
-        # 自动分配两个窗口
-        if chat_conn is None:
-            chat_conn = conn
-            print("[日志服务] 对话日志客户端已连接")
-        elif debug_conn is None:
-            debug_conn = conn
-            print("[日志服务] 调试日志客户端已连接")
-
-
-# 后台启动
-threading.Thread(target=log_server, daemon=True).start()
-
+        while True:
+            conn, addr = server.accept()
+            if chat_conn is None:
+                chat_conn = conn
+                print("[日志服务] 对话日志客户端已连接")
+            elif debug_conn is None:
+                debug_conn = conn
+                print("[日志服务] 调试日志客户端已连接")
+    except Exception as e:
+        print(f"[日志服务] 异常：{e}")
 
 # ======================
 # 公共写文件函数
@@ -51,12 +44,9 @@ def log_to_file(msg: str, log_type: str):
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     log_dir = f"logs/{log_type}"
     log_path = f"{log_dir}/{date_str}.log"
-
     os.makedirs(log_dir, exist_ok=True)
-
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
-
 
 # ======================
 # 对外日志接口
@@ -69,7 +59,6 @@ def chat_log(msg):
     except:
         pass
 
-
 def debug_log(msg):
     log_to_file(msg, "debug")
     try:
@@ -78,6 +67,6 @@ def debug_log(msg):
     except:
         pass
 
-
 def gateway_log(msg):
     log_to_file(msg, "gateway")
+    print(msg)

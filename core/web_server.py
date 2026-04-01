@@ -1,13 +1,18 @@
 import socket
 import json
 import queue
+import os
 from flask import Flask, render_template, request, session, redirect, url_for, Response, jsonify
 
 from core.logger import gateway_log
 from core.queue_manager import queue_and_retry, queue_clients, MESSAGE_QUEUE
 from core.output import WebOutput
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_folder = os.path.join(BASE_DIR, "templates")
+
+# 初始化 Flask，指定模板目录
+app = Flask(__name__, template_folder=template_folder)
 app.secret_key = "123"
 
 

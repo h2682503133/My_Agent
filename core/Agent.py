@@ -7,13 +7,24 @@ from collections import OrderedDict
 
 from core.response_parser import parse_response
 from core.syntax_parser import parse_syntax
-import openviking as ov
-from openviking.message import TextPart
 
 from core.logger import debug_log, chat_log
 from core.Tools import tool_manager
 from core.task import Task
 from core.user import User
+
+try:
+    import openviking as ov
+    from openviking.message import TextPart
+except:
+    # 找不到就模拟，不崩溃
+    print("ov不存在")
+    ov = None
+
+
+    class TextPart:
+        def __init__(self, text):
+            self.text = text
 
 GLOBAL_VIKING_CLIENT = ov.OpenViking(path="./viking_data")
 GLOBAL_VIKING_CLIENT.initialize()

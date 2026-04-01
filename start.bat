@@ -7,6 +7,8 @@ echo           My_Agent 一键启动脚本
 echo ==============================================
 echo.
 
+set "ACTIVATE=conda activate agent"
+
 set "ROOT_DIR=%~dp0"
 cd /d "%ROOT_DIR%"
 
@@ -31,19 +33,26 @@ if %errorlevel%==0 (
 )
 
 echo [startup] 使用解释器：%PY_CMD%
-echo [startup] 启动主窗口 main.py（内部会拉起调度器 + Web + QQ）
-start "主程序 - My_Agent" cmd /k "%PY_CMD% main.py"
+echo.
+
+
+
+:: 启动主程序（自动进虚拟环境）
+echo [startup] 启动主窗口 main.py
+start "主程序 - My_Agent" cmd /k "%ACTIVATE% && %PY_CMD% "main.py""
 
 timeout /t 2 /nobreak >nul
 
-echo [startup] 启动日志窗口（模型日志）
-start "调试日志窗口" cmd /k "%PY_CMD% log_client.py"
+:: 启动日志1
+echo [startup] 启动调试日志窗口
+start "调试日志窗口" cmd /k "%ACTIVATE% && %PY_CMD% "log_client.py""
 
-echo [startup] 启动日志窗口（对话日志）
-start "对话日志窗口" cmd /k "%PY_CMD% log_client.py"
+:: 启动日志2
+echo [startup] 启动对话日志窗口
+start "对话日志窗口" cmd /k "%ACTIVATE% && %PY_CMD% "log_client.py""
 
 echo.
-echo ✅ 多窗口已启动：主程序 + 2个日志窗口。
+echo ✅ 多窗口已启动：主程序 + 2个日志窗口
 echo.
 
 :console

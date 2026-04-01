@@ -3,7 +3,11 @@ import time
 import threading
 from collections import OrderedDict
 from functools import wraps
-from core.logger import gateway_log, chat_log
+
+from core.logger import gateway_log
+from core.task import Task
+from core.user import User
+from core.output import WebOutput
 
 MAX_RETRY = 2
 MAX_TASK_TIME = 120
@@ -26,14 +30,23 @@ def notify_queue_update():
     for client in list(queue_clients):
         try:
             client.put(MESSAGE_QUEUE.qsize())
-        except:
+        except Exception:
             queue_clients.remove(client)
+
+
+def _build_web_task(user_id: str, user_msg: str) -> tuple[Task, User, WebOutput]:
+    output = WebOutput()
+    user = User(user_id=user_id, session_id=user_id, output=output)
+    task_id = f"{user_id}-{int(time.time() * 1000)}"
+    task = Task(task_id=task_id, user_id=user_id, content=user_msg)
+    return task, user, output
 
 
 def queue_and_retry(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         from flask import request, session
+
         ip = request.remote_addr
         now = time.strftime("%d/%b/%Y %H:%M:%S")
         method = request.method
@@ -43,7 +56,9 @@ def queue_and_retry(func):
         user_id = session.get('user_id')
         if not user_id:
             return {"error": "请先登录"}
-        user_msg = request.json.get('msg')
+
+        user_msg = (request.json or {}).get('msg', '')
+        task, user, output = _build_web_task(user_id, user_msg)
 
         with USER_LOCK:
             if user_id not in USER_QUEUES:
@@ -53,7 +68,7 @@ def queue_and_retry(func):
         try:
             MESSAGE_QUEUE.put(time.time(), timeout=5)
             notify_queue_update()
-        except:
+        except Exception:
             return {"error": "服务繁忙"}
 
         result = {}
@@ -65,7 +80,8 @@ def queue_and_retry(func):
                 result["data"] = data
                 cond.notify()
 
-        user_q.put((func, (user_id, user_msg), {}, callback))
+        user_q.put((task, user, output, func, callback))
+
         with cond:
             cond.wait()
 
@@ -84,54 +100,69 @@ def slot_scheduler():
         if not MESSAGE_QUEUE.qsize():
             time.sleep(0.1)
             continue
+
         user_list = list(USER_QUEUES.keys())
         for user_id in user_list:
-            if processed >= BATCH_SIZE: break
+            if processed >= BATCH_SIZE:
+                break
             try:
                 user_q = USER_QUEUES[user_id]
-                if user_q.empty(): continue
+                if user_q.empty():
+                    continue
                 with BUSY_LOCK:
-                    if user_id in BUSY_USERS: continue
+                    if user_id in BUSY_USERS:
+                        continue
                 with SLOTS_LOCK:
-                    if None not in BATCH_SLOTS: break
+                    if None not in BATCH_SLOTS:
+                        break
                     slot = BATCH_SLOTS.index(None)
                     BATCH_SLOTS[slot] = user_id
                 with BUSY_LOCK:
                     BUSY_USERS.add(user_id)
-                task = user_q.get_nowait()
-                func, args, kw, cb = task
+                task_item = user_q.get_nowait()
                 processed += 1
-                threading.Thread(target=run_task, args=(user_id, func, args, kw, cb, slot), daemon=True).start()
-            except:
+                threading.Thread(target=run_task, args=(user_id, task_item, slot), daemon=True).start()
+            except Exception:
                 pass
-        if processed == 0: time.sleep(0.1)
+
+        if processed == 0:
+            time.sleep(0.1)
 
 
-def run_task(user_id, func, args, kwargs, callback, slot):
+def run_task(user_id, task_item, slot):
     gateway_log(f"[处理] 用户{user_id}")
+    task, user, output, func, callback = task_item
     try:
         for _ in range(MAX_RETRY):
             try:
                 res = None
 
                 def tf():
-                    nonlocal res; res = func(*args, **kwargs)
+                    nonlocal res
+                    task.status = "running"
+                    res = func(task, user)
 
                 t = threading.Thread(target=tf, daemon=True)
                 t.start()
                 t.join(MAX_TASK_TIME)
                 if not t.is_alive():
+                    task.status = "completed"
+                    if task.final_result and not output.messages:
+                        user.send(task.final_result)
                     callback(True, res)
                     return
-            except:
-                pass
+            except Exception:
+                task.retry_count += 1
+
+        task.status = "pending"
+        Task.save_pending_task(user.user_id, task)
         callback(False, None)
     finally:
         with SLOTS_LOCK:
             BATCH_SLOTS[slot] = None
         with BUSY_LOCK:
             BUSY_USERS.discard(user_id)
-        global processed;
+        global processed
         processed -= 1
 
 

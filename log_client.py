@@ -8,4 +8,4 @@ while True:
     data = s.recv(4096)
     if not data:
         break
-    print(data.decode("utf-8"), end="")
+    print(data.decode("utf-8", errors="ignore"), end="")

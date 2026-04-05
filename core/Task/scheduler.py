@@ -106,7 +106,7 @@ def slot_scheduler():
 # 槽执行器 · 只执行一次
 # ======================
 def run_task(task: Task, callback):
-    user_id = task.user.user_id
+    user_id = task.user.id
     success = False
 
     gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求，此为第{task.retry_count}次请求")
@@ -146,7 +146,7 @@ def run_task(task: Task, callback):
 # 通用提交接口（QQ/外部调用）
 # ======================
 def submit_task(task: Task):
-    user_id = task.user.user_id
+    user_id = task.user.id
 
     with USER_LOCK:
         if user_id not in USER_QUEUES:

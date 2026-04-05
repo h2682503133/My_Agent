@@ -1,5 +1,8 @@
+from core.logger import chat_log
 
-def parse_syntax(self, raw_text):
+
+def parse_syntax(self, task):
+    raw_text=task.consume_temp_dialog_output()
     reply = raw_text.strip()
     command = ""
     agent_call = None
@@ -54,11 +57,11 @@ def parse_syntax(self, raw_text):
         reply = agent_result  # 最终展示智能体返回
 
     # 统一 return，完全复用
-    return {
+    task.set_temp_dialog_output( {
         "final_reply": reply,
         "reply": raw_text.strip(),
         "command": command,
         "agent_call": agent_call,
         "command_result": command_result,
         "agent_result": agent_result
-    }
+    })

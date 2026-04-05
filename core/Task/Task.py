@@ -33,7 +33,10 @@ class Task:
         # 结构：[{"from": 指针, "input": 内容}]
         # 空栈 = 触发最终流程
         self.agent_context = []
+        self.caller = user
+        self.target=None
         self.temp_dialog_input = None
+        self.temp_dialog_output= None
         # ==================== 结果与反思 ====================
         # 最终输出结果
         self.final_result = ""
@@ -61,19 +64,24 @@ class Task:
             return self.agent_context.pop()
         return None
 
-    def set_temp_dialog_input(self, input_text: str) -> None:
+    def set_temp_dialog_input(self, input_text) -> None:
         """写入一轮临时对话输入（一次性消费）"""
         self.temp_dialog_input = input_text
 
-    def consume_temp_dialog_input(self) -> str | None:
+    def consume_temp_dialog_input(self):
         """读取并清空临时对话输入"""
-        if isinstance(self.temp_dialog_input, str):
-            value = self.temp_dialog_input
-            self.temp_dialog_input = None
-            return value
+        value = self.temp_dialog_input
         self.temp_dialog_input = None
-        return None
+        return value
 
+    def set_temp_dialog_output(self, input_text) -> None:
+        self.temp_dialog_output = input_text
+
+    def consume_temp_dialog_output(self):
+        """读取并清空临时对话输出"""
+        value = self.temp_dialog_output
+        self.temp_dialog_output = None
+        return value
     # ==================== 静态方法：管理暂停任务 ====================
     @classmethod
     def save_pending_task(cls, user_id: str, task: "Task") -> None:

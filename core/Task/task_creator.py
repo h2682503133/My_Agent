@@ -9,7 +9,7 @@ with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
 
 from core.Task.Task import Task
 from core.Task.User import User
-from core.Task.scheduler import submit_task
+
 
 # ======================
 # 初始化服务
@@ -59,7 +59,7 @@ def submit_task_api():
     except KeyError:
         task_name = f"task_{int(os.times()[4] * 1000)}_{user_id}"
         task = Task(task_name, user, content)
-
+    from core.Task.scheduler import submit_task
     submit_task(task)
     return jsonify(ok=1, task_id=task.task_id)
 

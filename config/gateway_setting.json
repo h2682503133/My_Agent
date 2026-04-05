@@ -1,0 +1,25 @@
+{
+  "main": {
+    "host": "127.0.0.1",
+    "port": 5000
+  },
+  "log": {
+    "port": 5001
+  },
+  "channels": {
+    "qq": {
+      "id": "qq",
+      "self_port": 5200,
+      "satori": {
+        "host": "127.0.0.1",
+        "port": 5600,
+        "token": ""
+      }
+    },
+    "web": {
+      "id": "web",
+      "self_port": 5201
+    }
+  },
+  "flask_debug": false
+}

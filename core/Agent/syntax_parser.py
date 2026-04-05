@@ -48,7 +48,7 @@ def parse_syntax(self, raw_text):
         reply = command_result  # 最终展示命令结果
 
     elif agent_call:
-        from core.Agent import Agent
+        from core.Agent.Agent import Agent
         agent_result = self.call_agent(agent_call["target_id"], agent_call["content"])
         agent_result = Agent.get_agent(agent_call["target_id"], self.session_id).call_agent(self.agent_id, agent_result)
         reply = agent_result  # 最终展示智能体返回

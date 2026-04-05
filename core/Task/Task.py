@@ -1,6 +1,6 @@
 
 import time
-from core.User import User
+from core.Task.User import User
 
 class Task:
     """

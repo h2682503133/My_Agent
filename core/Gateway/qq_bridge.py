@@ -6,12 +6,14 @@ import requests
 from flask import Flask, request, jsonify
 import json
 
-# 加载配置
+# ======================
+# 你bat启动的正确路径
+# ======================
 with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
 
 # ======================
-# 从配置读取所有内容
+# 配置读取
 # ======================
 MAIN_HOST = CONFIG["main"]["host"]
 MAIN_PORT = CONFIG["main"]["port"]
@@ -28,25 +30,24 @@ satori_app = App(WebsocketsInfo(
     token=SATORI_CFG["token"]
 ))
 
-# 会话管理（不跨进程，绝对安全）
 qq_sessions = {}
 
 class QQOutput:
     def __init__(self, account, channel):
         self.account = account
         self.channel = channel
+        # 保存异步主线程的事件循环（关键）
+        self.loop = asyncio.get_event_loop()
 
     def send(self, text):
-        # 拿全局事件循环 + 安全提交协程
-        loop = asyncio.get_event_loop()
-        future = asyncio.run_coroutine_threadsafe(
-            self.account.send_message(self.channel, text), loop
+        # 线程安全提交，永不报错
+        asyncio.run_coroutine_threadsafe(
+            self.account.send_message(self.channel, text),
+            self.loop
         )
-        # 等待任务完成，防止被销毁
-        future.result()
 
 # ======================
-# Flask 接收 main 发送
+# Flask 接收回调
 # ======================
 qq_app = Flask("qq_bridge")
 
@@ -66,10 +67,8 @@ def on_recv_from_main():
 async def on_qq_message(account: Account, event: MessageEvent):
     user_id = event.user.id
     content = event.message.content.strip()
-
     qq_sessions[user_id] = QQOutput(account, event.channel)
 
-    # 传给 main：只传数据
     requests.post(f"http://{MAIN_HOST}:{MAIN_PORT}/submit_task", json={
         "user_id": user_id,
         "content": content,
@@ -78,13 +77,12 @@ async def on_qq_message(account: Account, event: MessageEvent):
     })
 
 # ======================
-# 同时启动 QQ + 接收服务
+# 启动
 # ======================
 async def run_qq_bot():
     await satori_app.run_async()
 
 async def main():
-    print(f"[QQ] 渠道启动，监听回调端口：{QQ_SELF_PORT}")
     await asyncio.gather(
         run_qq_bot(),
         asyncio.to_thread(

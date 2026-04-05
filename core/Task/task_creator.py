@@ -1,17 +1,15 @@
 from flask import Flask, request, jsonify
 import requests
 import json
-import threading
 import os
 
 # 加载配置
 with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
 
-from core.Task import Task
-from core.User import User
-from core.scheduler import submit_task
-from core.logger import log_server
+from core.Task.Task import Task
+from core.Task.User import User
+from core.Task.scheduler import submit_task
 
 # ======================
 # 初始化服务
@@ -53,7 +51,7 @@ def submit_task_api():
         def send(self, text):
             send_to_channel(self.user_id, text, self.callback_port)
 
-    output = output = RemoteOutput(user_id, callback_port)
+    output = RemoteOutput(user_id, callback_port)
     user = User(user_id, f"{channel_id}_{user_id}", output)
     try:
         task = Task.task_map[user_id]

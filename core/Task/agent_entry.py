@@ -1,7 +1,7 @@
-from core.Task import Task
-from core.User import User
-from core.Agent import Agent
-from core.logger import chat_log
+from core.Task.Task import Task
+from core.Agent.Agent import Agent
+
+
 def process_user_task(task: Task):
     user=task.user
     """
@@ -10,9 +10,9 @@ def process_user_task(task: Task):
     调度、队列、AI 全在这里面
     """
     try:
-        #result = Agent.handle_task(task, user)
-        #reply = f"{Agent.default_agent[user.session_id]}：{result['agent_reply']}"
-        reply=Agent.user_chat(task.consume_temp_dialog_input(),task.user.session_id)
+        content=task.consume_temp_dialog_input()
+        print(content)
+        reply=Agent.user_chat(content,task.user.session_id)["agent_reply"]
         user.send(reply)
         user.send("任务已完成")
     except:

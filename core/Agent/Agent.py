@@ -7,8 +7,8 @@ import re
 from collections import OrderedDict
 #from typing_inspection.typing_objects import target
 
-from core.response_parser import parse_response
-from core.syntax_parser import parse_syntax
+from core.Agent.response_parser import parse_response
+from core.Agent.syntax_parser import parse_syntax
 import openviking as ov
 from openviking.message import TextPart
 
@@ -19,7 +19,7 @@ GLOBAL_VIKING_CLIENT.initialize()
 
 class Agent:
     # 静态变量：全局主程序根目录（所有命令执行依赖此路径）
-    BASE_ROOT_DIR = Path(__file__).parent.parent
+    BASE_ROOT_DIR = Path(__file__).parent.parent.parent
     MAX_INSTANCES = 20
     _agent_instances: OrderedDict[str, "Agent"] = OrderedDict()
     default_agent={}

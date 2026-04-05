@@ -38,7 +38,7 @@ start "调试日志窗口" cmd /k "conda activate agent && python log_client.py"
 :: ======================
 start "对话日志窗口" cmd /k "conda activate agent && python log_client.py"
 
-start "QQ连接" cmd /k "conda activate agent && python qq_bridge.py"
+
 
 echo.
 echo ✅ 服务启动完成！当前窗口为【总控制台】
@@ -57,6 +57,14 @@ if /i "%cmd%"=="clean" (
     ) else (
         echo [无锁文件]
     )
+    goto console
+)
+if /i "%cmd%"=="qq" (
+    start "QQ连接" cmd /k "conda activate agent && python core\\Gateway\\qq_bridge.py"
+    goto console
+)
+if /i "%cmd%"=="web" (
+    start "web窗口" cmd /k "conda activate agent && python core\\Gateway\\web_server.py"
     goto console
 )
 

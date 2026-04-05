@@ -85,7 +85,7 @@ class ToolManager:
                 return "写入失败"
 
         def codex(*args):
-            default_dir = r"D:\DuanKou\tools\My_Agent\workspace"
+            default_dir = r"/workspace"
 
             # 参数解析
             if len(args) == 1:

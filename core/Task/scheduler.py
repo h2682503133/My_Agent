@@ -3,17 +3,11 @@ import queue
 import time
 import threading
 from collections import OrderedDict
-from flask import Flask, request, session, Response
-from functools import wraps
-import json
 import socket
 #from core.logger import gateway_log
-from core.agent_entry import process_user_task
-from core.Task import Task
-from core.User import User
-import pickle
+from core.Task.agent_entry import process_user_task
+from core.Task.Task import Task
 # 【固定模板路径，彻底解决 login.html 找不到】
-import os
 
 from core.logger import gateway_log
 
@@ -115,7 +109,7 @@ def run_task(task: Task, callback):
     user_id = task.user.user_id
     success = False
 
-    gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求，此为第{task.retry_count}")
+    gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求，此为第{task.retry_count}次请求")
     try:
         def task_func():
             # 🔥 直接执行，不再需要存 result

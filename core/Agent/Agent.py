@@ -98,8 +98,8 @@ class Agent:
         try:
             agent_id = Agent.default_agent[session_id]
         except (KeyError, TypeError, AttributeError):
-            agent_id = "talker"
-            Agent.default_agent[session_id]="talker"
+            agent_id = "main"
+            Agent.default_agent[session_id]="main"
         target = Agent.get_agent(agent_id,session_id)
         chat_log(f"{session_id}->{target.agent_id}\n{user_input}")
         debug_log(f"[user_chat]{session_id}->{target.agent_id}")

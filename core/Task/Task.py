@@ -1,6 +1,6 @@
 
 import time
-from user import User
+from core.User import User
 
 class Task:
     """
@@ -11,11 +11,11 @@ class Task:
     # 静态字典：仅 暂停(pending) 状态的任务存入，key=user_id, value=Task实例
     task_map: dict[str, "Task"] = {}
 
-    def __init__(self, task_id: str, user_id: str, content: str):
+    def __init__(self, task_id: str, user: User, content: str):
         # 任务唯一ID
         self.task_id = task_id
         # 归属用户ID
-        self.user_id = user_id
+        self.user = user
         # 任务创建时间戳
         self.create_time = time.time()
         # 用户原始输入内容
@@ -33,7 +33,7 @@ class Task:
         # 结构：[{"from": 指针, "input": 内容}]
         # 空栈 = 触发最终流程
         self.agent_context = []
-
+        self.temp_dialog_input = None
         # ==================== 结果与反思 ====================
         # 最终输出结果
         self.final_result = ""
@@ -42,6 +42,10 @@ class Task:
 
         # ==================== 记忆日志（用于总结反思） ====================
         self.memory_log = []
+
+        self.set_temp_dialog_input(content)
+        self.push_context(user,content)
+
 
     # ==================== 上下文栈操作方法 ====================
     def push_context(self, from_obj, input_text: str) -> None:
@@ -55,6 +59,19 @@ class Task:
         """出栈：移除当前层，栈底可删除"""
         if self.agent_context:
             return self.agent_context.pop()
+        return None
+
+    def set_temp_dialog_input(self, input_text: str) -> None:
+        """写入一轮临时对话输入（一次性消费）"""
+        self.temp_dialog_input = input_text
+
+    def consume_temp_dialog_input(self) -> str | None:
+        """读取并清空临时对话输入"""
+        if isinstance(self.temp_dialog_input, str):
+            value = self.temp_dialog_input
+            self.temp_dialog_input = None
+            return value
+        self.temp_dialog_input = None
         return None
 
     # ==================== 静态方法：管理暂停任务 ====================

@@ -17,8 +17,8 @@ from core.logger import gateway_log
 queue_clients = set()
 processed = 0
 MESSAGE_QUEUE = queue.Queue(maxsize=50)
-MAX_RETRY = 2
-MAX_TASK_TIME = 120
+MAX_RETRY = 1
+MAX_TASK_TIME = 300
 
 USER_QUEUES: OrderedDict[str, queue.Queue] = OrderedDict()
 BATCH_SIZE = 2

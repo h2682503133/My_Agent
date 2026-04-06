@@ -1,13 +1,11 @@
 from core.logger import chat_log
 
-
 def parse_syntax(self, task):
-    raw_text=task.consume_temp_dialog_output()
+    raw_text = task.consume_temp_dialog_output()
     reply = raw_text.strip()
     command = ""
     agent_call = None
-    command_result = ""
-    agent_result = ""
+    tool_call = None  # 新增:工具调用结构
 
     lines = raw_text.splitlines()
     for line in lines:
@@ -16,11 +14,11 @@ def parse_syntax(self, task):
             continue
 
         # 统一冒号
-        line = line.replace(":", "：")
+        line = line.replace("：", ":")
 
         # 调用其他智能体
-        if line.startswith("对话："):
-            content = line.replace("对话：", "").strip()
+        if line.startswith("对话:"):
+            content = line.replace("对话:", "").strip()
             parts = [p.strip() for p in content.split("|") if p.strip()]
             if len(parts) >= 2:
                 agent_call = {
@@ -28,13 +26,26 @@ def parse_syntax(self, task):
                     "content": parts[1]
                 }
 
-        # 执行命令
-        elif line.startswith("命令："):
-            command = line.replace("命令：", "").strip()
+        # 工具调用（格式:工具名|参数1|参数2...）
+        elif "工具调用:" in line:
+            # 自动去掉智能体加的「工具调用:」前缀，兼容两种格式
+            line = line.replace("工具调用:", "").strip()
+
+            memory = task.consume_temp_dialog_input()
+            memory = memory + "\n调用了工具:" + line
+            task.push_context(self, memory)
+            # 剩余逻辑完全不变，解析标准工具格式
+            parts = line.split("|")
+            tool_name = parts[0].strip()
+            args = [p.strip() for p in parts[1:] if p.strip()]
+            tool_call = {
+                "tool": tool_name,
+                "args": args
+            }
 
         # 切换智能体
-        elif line.startswith("切换："):
-            agent_id = line.replace("切换：", "").strip()
+        elif line.startswith("切换:"):
+            agent_id = line.replace("切换:", "").strip()
             self.set_default_agent(agent_id)
         elif "切换到" in line and "智能体" in line:
             import re
@@ -43,25 +54,10 @@ def parse_syntax(self, task):
                 agent_id = match.group(1).strip()
                 self.set_default_agent(agent_id)
 
-    # ======================
-    # 核心：最多执行一种
-    # ======================
-    if command:
-        command_result = self._run_shell_command(command)
-        reply = command_result  # 最终展示命令结果
-
-    elif agent_call:
-        from core.Agent.Agent import Agent
-        agent_result = self.call_agent(agent_call["target_id"], agent_call["content"])
-        agent_result = Agent.get_agent(agent_call["target_id"], self.session_id).call_agent(self.agent_id, agent_result)
-        reply = agent_result  # 最终展示智能体返回
-
-    # 统一 return，完全复用
-    task.set_temp_dialog_output( {
+    # 只返回结构化数据，不执行
+    task.set_temp_dialog_output({
         "final_reply": reply,
         "reply": raw_text.strip(),
-        "command": command,
-        "agent_call": agent_call,
-        "command_result": command_result,
-        "agent_result": agent_result
+        "tool_call": tool_call,    # 工具:名称+参数
+        "agent_call": agent_call,  # 对话:目标+内容
     })

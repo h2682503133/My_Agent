@@ -11,6 +11,8 @@ from core.Agent.response_parser import parse_response
 from core.Agent.syntax_parser import parse_syntax
 import openviking as ov
 from openviking.message import TextPart
+from core.Agent.Tool_manager import tool_manager  # 你的工具管理器
+from core.Agent.Skill_manager import skill_manager
 
 from core.Task.task_creator import send_to_channel
 from core.logger import debug_log,chat_log
@@ -34,6 +36,7 @@ class Agent:
 
         # 智能体工作目录（默认可修改）
         self.working_dir = self.BASE_ROOT_DIR / "workspace"
+        print(self.BASE_ROOT_DIR)
 
         # 智能体配置（字典格式）
         self.config = {}
@@ -73,7 +76,7 @@ class Agent:
             context = task.pop_context()  # 出栈，拿到字典
             task.target = context["from"]
             request = context["input"]
-            result= f"{task.target.id}的请求：\n{request},\n收到来自{task.caller}的回复：\n{task.consume_temp_dialog_output()}"
+            result= [task.target.id,request,task.caller.id,task.consume_temp_dialog_output()]
             task.set_temp_dialog_input(result)
             task.target.send(task)
         #此处为总结预留
@@ -186,89 +189,116 @@ class Agent:
         self.system_prompt = "\n\n".join(parts)
 
     # ==================== 核心对话流程 ====================
-    def send(self,task):
+    def send(self, task):
         """单轮对话主流程（支持自调用）"""
-        content=task.consume_temp_dialog_input()
-        # 2. 同步获取上下文（无异步！）
+        content = task.consume_temp_dialog_input()
+        if not isinstance(content, str):
+            # 非字符串/None → 按你指定格式拼接
+            if content is not None:
+                if content[0]==content[2]:
+                    content=f"\n{content[1]}，\n结果{content[3]}"
+                else:
+                    content = f"{content[0]}的请求：\n{content[1]},\n收到来自{content[2]}的回复：\n{content[3]}"
+            else:
+                content = "当你看到这条消息时，意味着出现某些问题导致输入为空了"
+        task.set_temp_dialog_input(content)
+        chat_log(f"{self.id}收到:\n{content}")
+        # 2. 同步获取上下文
         context = self.get_context_sync(content)
 
         # 1. 添加用户输入到历史
-        #self.history.append({"role": "user", "content": user_input})
-        # messages = [{"role": "system", "content": self.system_prompt}] + history
         messages = [{"role": "system", "content": self.system_prompt}] + context
-        messages += [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分"}] + [{"role": "user", "content":f"<{task.caller.id}>"+content}]
+        messages += [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分\n下面是该任务用户原始请求"}] + [
+            {"role": "user", "content": f"<{task.user.id}>" + task.content},
+            {"role": "system", "content": "以下为本次单轮对话内容"},
+            {"role": "user", "content": f"<{task.caller.id}>" + content}]
         # 2. 调用大模型
         api_url = self.config["api_url"]
         model = self.config["model"]
 
+        try:
+            resp = requests.post(
+                api_url,
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "stream": False  # 强制关闭流式输出，保证返回完整JSON
+                },
+                timeout=120
+            )
+            resp.raise_for_status()
+            task.set_temp_dialog_output(resp)
+            self.parse_response(task)
+            self.parse_syntax(task)
+            result = task.consume_temp_dialog_output()
+        # 捕获模型超时/网络错误
+        except Exception as e:
+            # 🔥 兜底：返回错误结果，防止后续取键崩溃
+            result = {
+                "final_reply": f"【模型请求失败】{str(e)}",
+                "tool_call": None,
+                "agent_call": None
+            }
 
-        resp = requests.post(
-            api_url,
-            json={
-                "model": model,
-                "messages": messages,
-                "temperature": 0.7,
-                "stream": False  # 强制关闭流式输出，保证返回完整JSON
-            },
-            timeout=60
-        )
-        resp.raise_for_status()
-        task.set_temp_dialog_output(resp)
-        self.parse_response(task)
-        self.parse_syntax(task)
-        result=task.consume_temp_dialog_output()
-
-        #此处留出 可用于其他逻辑
-
+        # ======================
+        # 你的原有逻辑（完全保留）
+        # ======================
         chat_log(f"{self.id} 回复:\n {result['final_reply']}")
         task.set_temp_dialog_output(result["final_reply"])
-        task.caller=self
-        '''
-        # 6. 返回结构化结果
-        return {
-            "agent_reply": result["final_reply"],
-            "command": result["command"],
-            "agent_called": result["agent_call"],
-        }'''
+        task.caller = self
+        # ======================
+        # 核心：最多执行一种操作
+        # ======================
+        if result["tool_call"]:
+            task.set_temp_dialog_output(result["tool_call"])
+
+            self._run_shell_command(task)
+
+        elif result["agent_call"]:
+            agent_call = result["agent_call"]
+            task.set_temp_dialog_input(agent_call["content"])
+            self.call_agent(agent_call["target_id"], task)
 
     # ==================== 智能体调用 ====================
-    def call_agent(self, target_agent_id, content):
-        chat_log(f"<{self.session_id}>:{self.id}->{target_agent_id}\n"+content)
+    def call_agent(self, target_agent_id, task:Task):
+        content=task.consume_temp_dialog_input()
+        task.push_context(self,content)
+        chat_log(f"<{self.session_id}>:{self.id}->{target_agent_id}\n{content}")
         debug_log(f"[agent_call] <{self.session_id}>:{self.id}->{target_agent_id}")
         """调用另一个智能体，内部会触发 chat()，支持自调用"""
-        target_agent = Agent.get_agent(target_agent_id,self.session_id)
-        result = target_agent.chat(self.id,content)
-        return result["agent_reply"]
+        task.target = Agent.get_agent(target_agent_id,self.session_id)
+        task.caller = self
+        task.set_temp_dialog_input(content)
+        task.target.send(task)
 
-    # ==================== 通用命令执行（CMD/Codex） ====================
-    def _run_shell_command(self, command):
-        """执行系统命令，依赖静态主路径，源代码完全保留"""
-        debug_log(f"[command]: {self.id} {command}")
+
+    def _run_shell_command(self, task):
+        # 从解析结果中获取工具调用
+        tool_call = task.consume_temp_dialog_output()
+
+        if not tool_call:
+            output = "没有可执行的工具指令"
+            task.set_temp_dialog_output(output)
+            return
+
+        tool_name = tool_call["tool"]
+        args = tool_call["args"]
+        debug_log(f"[工具执行] {self.id} → {tool_name} {args}")
+
+        task.caller = self
         try:
-            result = subprocess.run(
-                command,
-                cwd=self.BASE_ROOT_DIR / "workspace",
-                shell=True,
-                capture_output=True,
-                text=False,  # 重要：关闭文本模式
-            )
-            def safe_decode(data):
-                try:
-                    return data.decode("utf-8").strip()
-                except:
-                    return data.decode("gbk", errors="replace").strip()
-
-            stdout = safe_decode(result.stdout)
-            stderr = safe_decode(result.stderr)
-            output = (stdout + "\n" + stderr).strip()
-
-            if not output:
-                if result.returncode == 0:
-                    return "命令执行成功"
-                else:
-                    return "命令执行失败"
-
-            return output
+            if tool_name in tool_manager.tools:
+                # 1. 优先执行原生工具（shell/file-read/codex等）
+                output = tool_manager.run_tool(tool_name, *args)
+            else:
+                # 2. 无原生工具 → 自动执行 OpenViking 技能（ClawHub下载的技能）
+                output = skill_manager.run_skill(tool_name, *args)
 
         except Exception as e:
-            return f"执行失败：{str(e)}"
+            output = f"工具执行失败：{str(e)}"
+
+        # 把结果写回任务
+        task.set_temp_dialog_output(output)
+        chat_log(f"{self.id} 执行工具 {tool_name}:\n结果: {output}")
+        debug_log(f"[工具结果] {self.id} {output}")

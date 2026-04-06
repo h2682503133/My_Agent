@@ -15,8 +15,14 @@ class User:
         self.session_id = session_id
         # 底层推送接口（WebOutput/QQOutput，实现send(text)方法）
         self.output = output
+
     def send(self, task) -> None:
         text=task.consume_temp_dialog_input()
+        if not isinstance(text, str):
+            if task is not None:
+                text=f"{text[2]}:{text[3]}"
+            else: text="空回复"
+
         """
         统一消息发送入口
         仅执行底层发送，不做任何状态/栈判断

@@ -49,6 +49,6 @@ if __name__ == "__main__":
     else:
         res = call_codex(
             "生成打印你好的Python程序，完成后输出：所有任务已完成",
-            r"D:\DuanKou\tools\My_Agent\workspace"
+            r"/workspace"
         )
         print(res)

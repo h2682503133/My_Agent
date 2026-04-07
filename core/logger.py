@@ -4,7 +4,6 @@ import time
 import datetime
 import socket
 import threading
-
 # ======================
 # 配置
 # ======================
@@ -21,17 +20,30 @@ debug_conn = None  # 任务/队列日志窗口
 # ======================
 def log_server():
     global chat_conn, debug_conn
+    import socket
+
+    # 🔥 检测端口是否被占用（关键修复）
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    port_in_use = s.connect_ex(('127.0.0.1', LOG_PORT)) == 0
+    s.close()
+
+    # 如果端口被占用，直接不启动，不退出程序
+    if port_in_use:
+        print("[日志服务] 端口已被占用，当前进程不启动日志服务")
+        return
+
+    # 端口没被占用，才继续启动
+    print("[日志服务] 启动日志服务...")
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((LOG_HOST, LOG_PORT))
-    server.listen(2)  # 允许 2 个连接
+    server.listen(2)
     print("[日志服务] 等待双客户端连接...")
 
     while True:
         conn, addr = server.accept()
-
-        # 自动分配两个窗口
         if chat_conn is None:
             chat_conn = conn
             print("[日志服务] 对话日志客户端已连接")
@@ -39,8 +51,7 @@ def log_server():
             debug_conn = conn
             print("[日志服务] 调试日志客户端已连接")
 
-
-# 后台启动
+# 启动线程（不动）
 threading.Thread(target=log_server, daemon=True).start()
 
 
@@ -81,3 +92,4 @@ def debug_log(msg):
 
 def gateway_log(msg):
     log_to_file(msg, "gateway")
+    print(msg)

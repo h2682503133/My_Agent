@@ -6,6 +6,21 @@ echo ==============================================
 echo.
 
 :: ======================
+:: 让用户输入虚拟环境名称（直接回车=不使用）
+:: ======================
+set "CONDA_ENV_NAME="
+set /p "CONDA_ENV_NAME=请输入虚拟环境名称（直接回车=不使用虚拟环境）："
+
+if not defined CONDA_ENV_NAME (
+    echo [信息] 未使用虚拟环境，直接使用系统 Python
+    set "PY_CMD=python"
+) else (
+    echo [信息] 使用虚拟环境：%CONDA_ENV_NAME%
+    set "PY_CMD=conda activate %CONDA_ENV_NAME% && python"
+)
+echo.
+
+:: ======================
 :: 设置环境变量
 :: ======================
 set PYTHONPATH=%~dp0
@@ -23,7 +38,7 @@ if exist "viking_data\.openviking.pid" (
 :: ======================
 :: 启动 1：主程序 main.py
 :: ======================
-start "主程序 - Flask" cmd /k cmd /k "conda activate agent && python main.py"
+start "主程序 - Flask" cmd /k "%PY_CMD% main.py"
 
 :: 等待 2 秒让服务端先启动
 timeout /t 2 /nobreak >nul
@@ -31,19 +46,19 @@ timeout /t 2 /nobreak >nul
 :: ======================
 :: 启动 2：模型日志窗口
 :: ======================
-start "调试日志窗口" cmd /k "conda activate agent && python log_client.py"
+start "调试日志窗口" cmd /k "%PY_CMD% log_client.py"
 
 :: ======================
 :: 启动 3：任务日志窗口
 :: ======================
-start "对话日志窗口" cmd /k "conda activate agent && python log_client.py"
-
+start "对话日志窗口" cmd /k "%PY_CMD% log_client.py"
 
 
 echo.
 echo ✅ 服务启动完成！当前窗口为【总控制台】
 echo.
 
+echo 请输入web或qq 在两种连接方式中至少选一种
 :console
 set /p "cmd=>>> 请输入命令："
 
@@ -60,15 +75,15 @@ if /i "%cmd%"=="clean" (
     goto console
 )
 if /i "%cmd%"=="qq" (
-    start "QQ连接" cmd /k "conda activate agent && python core\\Gateway\\qq_bridge.py"
+    start "QQ连接" cmd /k "%PY_CMD% core\\Gateway\\qq_bridge.py"
     goto console
 )
 if /i "%cmd%"=="web" (
-    start "web窗口" cmd /k "conda activate agent && python core\\Gateway\\web_server.py"
+    start "web窗口" cmd /k "%PY_CMD% core\\Gateway\\web_server.py"
     goto console
 )
 
-echo 未知命令！支持：exit, clean
+echo 未知命令！支持：exit, clean, qq, web
 goto console
 
 

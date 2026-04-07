@@ -225,7 +225,7 @@ class Agent:
                     "temperature": 0.7,
                     "stream": False  # 强制关闭流式输出，保证返回完整JSON
                 },
-                timeout=120
+                timeout=600
             )
             resp.raise_for_status()
             task.set_temp_dialog_output(resp)

@@ -32,7 +32,7 @@ class SkillManager:
         skill_dir.mkdir(exist_ok=True)
 
         # 安装技能到本地
-        result = tool_manager.shell(f"clawhub install {skill_slug} --dir {skill_dir}")
+        result = tool_manager.shell(f"clawhub install {skill_slug} --dir {skill_dir} --force")
 
         skill_md_path = skill_dir / skill_slug / "SKILL.md"
 
@@ -60,8 +60,26 @@ class SkillManager:
         return tool_manager.shell("clawhub list")
 
     def skill_delete(self, skill_slug: str):
+        from core.Agent.Agent import Agent
         from core.Agent.Tool_manager import tool_manager
-        return tool_manager.shell(f"clawhub uninstall {skill_slug}")
+        import shutil
+
+        # 1. 先从 Viking 知识库中删除技能（关键！你之前缺的就是这个）
+        try:
+            skill_uri = f"viking://agent/skills/{skill_slug}"
+            self.client.rm(skill_uri)  # 移除 Viking 内部技能
+        except Exception as e:
+            pass  # 就算删不掉也继续执行系统删除
+
+        # 2. 执行 clawhub 卸载命令
+        result = tool_manager.shell(f"clawhub uninstall --yes {skill_slug}")
+
+        # 3. 强制删除本地技能文件夹（彻底清理）
+        skill_dir = Path(Agent.BASE_ROOT_DIR) / "skills" / skill_slug
+        if skill_dir.exists():
+            shutil.rmtree(skill_dir)
+
+        return f"✅ 技能已完全卸载（Viking 已移除 + 文件夹已删除）：{skill_slug}\n{result}"
 
     def skill_list(self, *args):
         """列出 Viking 知识库中所有技能（100% 不会报错版）"""
@@ -127,25 +145,30 @@ class SkillManager:
         except:
             return "读取 SKILL.md 失败"
 
-    '''
-    # ======================
-    # 运行已安装的技能
-    # ======================
     def run_skill(self, skill_name: str, *args):
         try:
-            # 从 OpenViking 技能库里查找并运行技能
-            results = self.client.find(
-                query=skill_name,
-                target_uri="viking://agent/skills/",
-                limit=1
-            )
-            if not results.skills:
-                return f"【错误】未安装技能：{skill_name}"
+            from core.Agent.Tool_manager import tool_manager
+            import os
 
-            skill = results.skills[0]
-            return f"【执行技能】{skill.name} | 参数：{args}"
+            # ======================
+            # 通用固定格式
+            # 所有技能都走：scripts/技能名.py
+            # ======================
+            base_dir = os.getcwd()
+            skill_dir = os.path.join(base_dir, "skills", skill_name)
+            arg_str = " ".join(args)
+            # 统一执行命令（无任何特殊适配）
+            cmd = f'cd /d "{skill_dir}" ; python scripts/{skill_name}.py {arg_str}'
+
+            # 执行
+            result = tool_manager.shell(cmd)
+            return f"【✅ 执行成功：{skill_name}】\n命令：{cmd}\n结果：{result}"
+
+            # ======================
+            # 只要失败 → 直接返回技能文档
+            # ======================
         except Exception as e:
-            return f"【技能执行失败】{str(e)}"
-    '''
+            doc = self.skill_overview(skill_name)
+            return doc
 # 单例
 skill_manager = SkillManager()

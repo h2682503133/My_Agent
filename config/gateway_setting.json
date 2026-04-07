@@ -1,10 +1,10 @@
 {
   "main": {
     "host": "127.0.0.1",
-    "port": 5000
+    "port": 5100
   },
   "log": {
-    "port": 5001
+    "port": 5101
   },
   "channels": {
     "qq": {
@@ -21,5 +21,9 @@
       "self_port": 5201
     }
   },
-  "flask_debug": false
+  "flask_debug": false,
+  "local_ip": {
+    "test_ip": "10.244.0.0",
+    "test_port": 1
+  }
 }

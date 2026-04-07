@@ -81,10 +81,54 @@ class ToolManager:
 
         def websearch(query: str):
             try:
-                r = requests.get(f"https://www.baidu.com/s?wd={query}", timeout=10)
-                return f"搜索 {query} 成功"
-            except:
-                return "搜索失败"
+                from bs4 import BeautifulSoup
+
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Connection": "close",
+                    "Upgrade-Insecure-Requests": "1"
+                }
+
+                r = requests.get(
+                    f"https://www.baidu.com/s",
+                    params={"wd": query},
+                    headers=headers,
+                    timeout=15
+                )
+                r.raise_for_status()
+
+                soup = BeautifulSoup(r.text, "html.parser")
+                results = []
+
+                # 兼容百度所有结果样式 + 提取网址
+                for item in soup.find_all("div", class_=["result", "c-container", "result-op"]):
+                    if len(results) >= 4:
+                        break
+                    try:
+                        # 标题
+                        title = item.find("h3").get_text(strip=True) if item.find("h3") else "无标题"
+                        
+                        # 真实网址
+                        link_tag = item.find("a")
+                        url = link_tag["href"] if link_tag and "href" in link_tag.attrs else "无链接"
+                        
+                        # 内容摘要
+                        content = item.get_text(strip=True)[:160]
+
+                        # 把网址也加进去！
+                        results.append(f"? {title}\n【网址】{url}\n{content}\n")
+                    except:
+                        continue
+
+                if not results:
+                    return f"【百度搜索：{query}】未找到相关内容（或被百度拦截）"
+
+                return f"【百度搜索：{query}】\n" + "\n".join(results)
+
+            except Exception as e:
+                return f"搜索失败：{str(e)}"
 
         def file_read(path: str):
             from core.Agent.Agent import Agent

@@ -14,7 +14,7 @@ class Task:
     def __init__(self, task_id: str, user: User, content: str):
         # 任务唯一ID
         self.task_id = task_id
-        # 归属用户ID
+        # 归属用户
         self.user = user
         # 任务创建时间戳
         self.create_time = time.time()
@@ -29,7 +29,7 @@ class Task:
         # 调度槽位编号
         self.slot_index = -1
 
-        # ==================== 核心上下文栈（数组模拟栈） ====================
+        # ==================== 核心上下文栈（本处必须保留） ====================
         # 结构：[{"from": 指针, "input": 内容}]
         # 空栈 = 触发最终流程
         self.agent_context = []
@@ -37,6 +37,9 @@ class Task:
         self.target=None
         self.temp_dialog_input = None
         self.temp_dialog_output= None
+        
+        self.set_temp_dialog_input(content)
+        self.push_context(user,content)
         # ==================== 结果与反思 ====================
         # 最终输出结果
         self.final_result = ""
@@ -46,8 +49,7 @@ class Task:
         # ==================== 记忆日志（用于总结反思） ====================
         self.memory_log = []
 
-        self.set_temp_dialog_input(content)
-        self.push_context(user,content)
+        
 
 
     # ==================== 上下文栈操作方法 ====================

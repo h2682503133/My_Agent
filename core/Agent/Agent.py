@@ -36,7 +36,6 @@ class Agent:
 
         # 智能体工作目录（默认可修改）
         self.working_dir = self.BASE_ROOT_DIR / "workspace"
-        print(self.BASE_ROOT_DIR)
 
         # 智能体配置（字典格式）
         self.config = {}

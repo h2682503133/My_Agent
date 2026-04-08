@@ -1,17 +1,18 @@
-import asyncio
-import json
-import requests
-from flask import Flask, request, jsonify
 from satori.client import App, WebsocketsInfo, Account
 from satori.const import EventType
 from satori.event import MessageEvent
+import asyncio
+import requests
+from flask import Flask, request, jsonify
+import json
 
-# ======================
-# 配置（和你原来一样）
-# ======================
+# 加载配置
 with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
 
+# ======================
+# 从配置读取所有内容
+# ======================
 MAIN_HOST = CONFIG["main"]["host"]
 MAIN_PORT = CONFIG["main"]["port"]
 QQ_CONFIG = CONFIG["channels"]["qq"]
@@ -19,7 +20,7 @@ QQ_SELF_PORT = QQ_CONFIG["self_port"]
 SATORI_CFG = QQ_CONFIG["satori"]
 
 # ======================
-# Satori 客户端
+# QQ 机器人
 # ======================
 satori_app = App(WebsocketsInfo(
     host=SATORI_CFG["host"],
@@ -27,81 +28,84 @@ satori_app = App(WebsocketsInfo(
     token=SATORI_CFG["token"]
 ))
 
-# 保存用户的发送通道（给main回调用）
-qq_user_senders = {}
+# 全局保存事件循环（关键修复）
+main_loop = None
 
-# ======================
-# QQ 消息发送器（给main回调）
-# ======================
-class QQSender:
-    def __init__(self, account: Account, channel):
+# 会话管理
+qq_sessions = {}
+
+
+class QQOutput:
+    def __init__(self, account, channel):
         self.account = account
         self.channel = channel
-        self.loop = asyncio.get_event_loop()
 
-    def send(self, text: str):
-        # 线程安全发送，不阻塞、不报错
+    def send(self, text):
+        # 使用全局保存的 loop，不在线程里获取
         asyncio.run_coroutine_threadsafe(
             self.account.send_message(self.channel, text),
-            self.loop
+            main_loop
         )
 
+
 # ======================
-# Flask：接收 MAIN 回调消息
+# Flask 接收 main 发送
 # ======================
 qq_app = Flask("qq_bridge")
 
+
 @qq_app.route("/send", methods=["POST"])
-def receive_from_main():
+def on_recv_from_main():
     data = request.get_json()
     user_id = data["user_id"]
     text = data["text"]
-
-    if user_id in qq_user_senders:
-        qq_user_senders[user_id].send(text)
-
+    if user_id in qq_sessions:
+        qq_sessions[user_id].send(text)
     return jsonify(ok=1)
 
+
 # ======================
-# Satori：接收QQ消息 → 转发给 MAIN
+# QQ 消息监听
 # ======================
 @satori_app.register_on(EventType.MESSAGE_CREATED)
 async def on_qq_message(account: Account, event: MessageEvent):
     user_id = event.user.id
     content = event.message.content.strip()
 
-    # 保存发送器，用于 MAIN 回调
-    qq_user_senders[user_id] = QQSender(account, event.channel)
+    qq_sessions[user_id] = QQOutput(account, event.channel)
 
-    payload = {
+    # 同步发送，不阻塞异步
+    requests.post(f"http://{MAIN_HOST}:{MAIN_PORT}/submit_task", json={
         "user_id": user_id,
         "content": content,
         "channel_id": "qq",
         "callback_port": QQ_SELF_PORT
-    }
+    })
 
-    # 转发到 main
-    requests.post(
-        f"http://{MAIN_HOST}:{MAIN_PORT}/submit_task",
-        json=payload
-    )
 
 # ======================
-# 启动
+# 同时启动 QQ + 接收服务
 # ======================
-async def run_satori():
+async def run_qq_bot():
     await satori_app.run_async()
 
+
 async def main():
+    global main_loop
+    # 保存全局事件循环（修复核心）
+    main_loop = asyncio.get_running_loop()
+
+    print(f"[QQ] 渠道启动，监听回调端口：{QQ_SELF_PORT}")
     await asyncio.gather(
-        run_satori(),
+        run_qq_bot(),
         asyncio.to_thread(
             qq_app.run,
             host="0.0.0.0",
             port=QQ_SELF_PORT,
-            debug=False
+            debug=CONFIG["flask_debug"]
         )
     )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

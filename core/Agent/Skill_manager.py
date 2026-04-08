@@ -27,32 +27,38 @@ class SkillManager:
     def clawhub_install(self, skill_slug: str):
         from core.Agent.Agent import Agent
         from core.Agent.Tool_manager import tool_manager
-
         skill_dir = Path(Agent.BASE_ROOT_DIR) / "skills"
         skill_dir.mkdir(exist_ok=True)
 
         # 安装技能到本地
         result = tool_manager.shell(f"clawhub install {skill_slug} --dir {skill_dir} --force")
-
         skill_md_path = skill_dir / skill_slug / "SKILL.md"
 
         # ================================
-        # 🔥 官方标准正确添加技能
+        # 🔥 调用独立接口：添加技能到 OpenViking
         # ================================
+        add_result = self.add_skill_to_openviking(skill_md_path)
+
+        if add_result.startswith("✅"):
+            return f"✅ 安装并导入 Viking 知识库：{skill_slug}\n{add_result}\n{result}"
+        else:
+            return f"⚠️ 安装成功，但导入技能失败：{add_result}\n{result}"
+    
+    def add_skill_to_viking(self, skill_slug: str) -> str:
+        from core.Agent.Agent import Agent
         try:
-            if skill_md_path.exists():
-                # 方式1：Python SDK 标准用法（支持本地路径，内部自动处理上传）
-                add_result = self.client.add_skill(str(skill_md_path), wait=True)
+            # 路径规则 和之前完全一样
+            skill_md_path = Path(Agent.BASE_ROOT_DIR) / "skills" / skill_slug / "SKILL.md"
 
-                return (
-                    f"✅ 安装并导入 Viking 知识库：{skill_slug}\n"
-                    f"URI：{add_result.get('uri', '')}\n"
-                    f"{result}"
-                )
+            if not skill_md_path.exists():
+                return f"❌ 技能 {skill_slug} 不存在，缺少 SKILL.md"
+
+            # 官方SDK添加技能
+            add_result = self.client.add_skill(str(skill_md_path), wait=True)
+            return f"✅ 技能导入成功：{skill_slug} | URI: {add_result.get('uri', '')}"
+
         except Exception as e:
-            return f"⚠️ 安装成功，但导入技能失败：{e}\n{result}"
-
-        return f"✅ 技能已安装：{skill_slug}\n{result}"
+            return f"❌ 导入技能失败：{str(e)}"
 
     def clawhub_list(self, *args):
 
@@ -150,24 +156,33 @@ class SkillManager:
             from core.Agent.Tool_manager import tool_manager
             import os
 
-            # ======================
-            # 通用固定格式
-            # 所有技能都走：scripts/技能名.py
-            # ======================
+
             base_dir = os.getcwd()
             skill_dir = os.path.join(base_dir, "skills", skill_name)
+        
+        
+            script_file = f"{skill_dir}//scripts//{skill_name}.py"
+
+            # ======================
+            # 你要的逻辑：只判断 .py 文件是否存在
+            # 不存在 → 抛异常 → 进 except → 返回文档
+            # ======================
+            if not os.path.exists(script_file):
+                raise FileNotFoundError(f"技能脚本不存在：{script_file}")
+
+            # 拼接命令（不变）
             arg_str = " ".join(args)
-            # 统一执行命令（无任何特殊适配）
-            cmd = f'cd /d "{skill_dir}" ; python scripts/{skill_name}.py {arg_str}'
+            cmd = f'cd "{skill_dir}" ; python scripts/{skill_name}.py {arg_str}'
 
-            # 执行
-            result = tool_manager.shell(cmd)
-            return f"【✅ 执行成功：{skill_name}】\n命令：{cmd}\n结果：{result}"
+            # 执行：显示完整报错 + 中文不乱码
+            output=tool_manager.shell(cmd)
 
-            # ======================
-            # 只要失败 → 直接返回技能文档
-            # ======================
+            return f"【? 执行成功：{skill_name}】\n命令：{cmd}\n结果：{output}"
+
         except Exception as e:
+            # ======================
+            # 只有 文件不存在 才会走到这里
+            # ======================
             doc = self.skill_overview(skill_name)
             return doc
 # 单例

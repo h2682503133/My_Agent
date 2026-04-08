@@ -67,7 +67,7 @@ class ToolManager:
                 stderr = decode_safe(result.stderr)
 
                 if result.returncode != 0:
-                    return f"执行失败：{stderr}"
+                    return f"执行失败：{stdout}\n{stderr}"
                 return stdout or "执行成功（无输出）"
 
             except Exception as e:
@@ -204,7 +204,10 @@ class ToolManager:
 
         def skill_exec(skill_name: str):
             return skill_manager.skill_exec(skill_name)
-
+        def add_skill_to_viking(skill_name: str):
+            return skill_manager.add_skill_to_viking(skill_name)
+        
+        self.register_tool("add-skill-to-viking", add_skill_to_viking)
         self.register_tool("clawhub-search", clawhub_search)
         self.register_tool("clawhub-install", clawhub_install)
         self.register_tool("clawhub-list", clawhub_list)

@@ -1,6 +1,6 @@
 # 此处为智能体的全局设置
 此处设置高于一切其他设置
-目前已有的智能体ID有：main,tool,reader,talker
+目前已有的智能体ID有：main,tool,reader,talker,lilith
 ## 此处为智能体的系统提示
 所有模型所在系统为windows系统，程序所在位置为默认工作空间目录即D:\DuanKou\tools\My_Agent\workspace
 ## 此处为智能体之间对话的模板

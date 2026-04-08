@@ -18,7 +18,8 @@ from core.logger import gateway_log
 queue_clients = set()
 processed = 0
 MESSAGE_QUEUE = queue.Queue(maxsize=50)
-MAX_TASK_TIME = 300  #超时
+MAX_RETRY = 1
+MAX_TASK_TIME = 300
 
 USER_QUEUES: OrderedDict[str, queue.Queue] = OrderedDict()
 BATCH_SIZE = 2
@@ -40,7 +41,7 @@ def notify_queue_update():
             queue_clients.remove(client)
 
 # ======================
-# 槽位调度器
+# 槽位调度器（核心逻辑 · 完全按你的规则）
 # ======================
 def slot_scheduler():
     global processed
@@ -73,6 +74,10 @@ def slot_scheduler():
                 # ------------------------------
                 task, callback = user_q.queue[0]
 
+                # ------------------------------
+                # 调度器控制：重试次数 +1
+                # ------------------------------
+                task.retry_count += 1
                 task.status = "running"
                 task.slot_index = slot_idx
 
@@ -99,15 +104,16 @@ def slot_scheduler():
             time.sleep(0.1)
 
 # ======================
-# 槽执行器
+# 槽执行器 · 只执行一次
 # ======================
 def run_task(task: Task, callback):
     user_id = task.user.id
     success = False
 
-    gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求 [单次执行模式]")
+    gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求，此为第{task.retry_count}次请求")
     try:
         def task_func():
+            # 🔥 直接执行，不再需要存 result
             process_user_task(task)
 
         t = threading.Thread(target=task_func, daemon=True)
@@ -120,7 +126,6 @@ def run_task(task: Task, callback):
         success = False
 
     finally:
-        # 释放槽位
         with SLOTS_LOCK:
             BATCH_SLOTS[task.slot_index] = None
         with BUSY_LOCK:
@@ -128,13 +133,15 @@ def run_task(task: Task, callback):
         global processed
         processed -= 1
 
-        try:
+    if success:
+        USER_QUEUES[user_id].get()
+        task.status = "completed"
+    else:
+        if task.retry_count >= MAX_RETRY:
             USER_QUEUES[user_id].get()
-        except:
-            pass
-
-        # 标记终态
-        task.status = "completed" if success else "failed"
+            task.status = "failed"
+        else:
+            task.status = "waiting"
 
 # ======================
 # 通用提交接口（QQ/外部调用）
@@ -163,9 +170,11 @@ def get_local_ip():
         test_ip = CONFIG["local_ip"]["test_ip"]
         test_port = CONFIG["local_ip"]["test_port"]
         s.connect((test_ip, test_port))
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         ip = s.getsockname()[0]
     except:
         ip = "127.0.0.1"
     finally:
         s.close()
     return ip
+

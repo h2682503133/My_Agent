@@ -222,4 +222,4 @@ logs/
 core/__pycache__/
 skills/
 system_prompt/lilith
-
+test.py

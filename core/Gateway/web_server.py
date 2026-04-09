@@ -93,4 +93,4 @@ def receive_from_main():
 # 启动 5201
 # ============================
 if __name__ == '__main__':
-    app.run(host="127.0.0.1", port=WEB_PORT, debug=False)
+    app.run(host="0.0.0.0", port=WEB_PORT, debug=False)

@@ -1,47 +1,29 @@
-import subprocess
+import sys
+from pathlib import Path
+import openviking as ov
 
+# ======================
+# 你只需要确保运行在项目根目录即可
+# ======================
+def main(skill_slug):
 
-def shell(*args):
+    # 路径：当前目录 / skills / 技能名 / SKILL.md
+    skill_file = Path.cwd() / "skills" / skill_slug / "SKILL.md"
+
+    if not skill_file.exists():
+        print(f"❌ 文件不存在：{skill_file}")
+        return
+
+    # 初始化 OpenViking（和你代码完全一致）
+    data_path = Path.cwd() / "viking_data"
+    client = ov.SyncOpenViking(path=str(data_path))
+    client.initialize()
+
+    print(f"开始导入：{skill_file}")
+
     try:
-
-        if not args:
-            return "错误：命令不能为空"
-        clean_args = []
-        for arg in args:
-            if isinstance(arg, list):
-                clean_args.extend(arg)  # 列表就把内容倒出来
-            else:
-                clean_args.append(str(arg))
-        # 严格按你的协议：| 分隔
-        command = "|".join(clean_args)
-        workspace = str("D:\\DuanKou\\tools\\My_Agent\\" + "workspace")
-        full_cmd = f"Set-Location '{workspace}'; {command}"
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", full_cmd],
-            capture_output=True,
-            text=False,
-            timeout=20
-        )
-
-        # ✅ 安全解码
-        def decode_safe(b: bytes) -> str:
-            if not b:
-                return ""
-            try:
-                return b.decode("utf-8").strip()
-            except UnicodeDecodeError:
-                try:
-                    return b.decode("gbk").strip()
-                except UnicodeDecodeError:
-                    return "[非文本内容]"
-
-        stdout = decode_safe(result.stdout)
-        stderr = decode_safe(result.stderr)
-
-        if result.returncode != 0:
-            return f"执行失败：{stdout+stderr}"
-        return stdout or "执行成功（无输出）"
-
+        result = client.add_skill(str(skill_file), wait=True)
+        print(f"✅ 导入成功：{result.get('uri', '')}")
     except Exception as e:
-        return f"执行异常：{str(e)}"
-print(shell("cd 'D:\\DuanKou\\tools\\My_Agent\\skills\\pixiv' ; python scripts/pixiv.py search --keyword 键山雏"))
+        print(f"❌ 导入失败：{str(e)}")
+main("qq")

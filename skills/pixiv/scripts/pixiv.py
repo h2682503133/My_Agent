@@ -56,12 +56,27 @@ class PixivClient:
             filename = os.path.basename(img_url)
             save_path = os.path.join(self.download_dir, filename)
 
-            resp = requests.get(proxy_url, headers=self._headers())
-            with open(save_path, "wb") as f:
-                f.write(resp.content)
-            
-            saved_paths.append(save_path)
-        
+            # ====================== 我加的优化 ======================
+            # 1. 下载超时 30 秒（防止卡死）
+            # 2. 异常捕获（网络失败不会崩整个脚本）
+            # ======================================================
+            try:
+                resp = requests.get(
+                    proxy_url,
+                    headers=self._headers(),
+                    timeout=30  # 👈 关键：单张图片下载超时30秒
+                )
+                resp.raise_for_status()  # 404/500 直接抛错
+
+                with open(save_path, "wb") as f:
+                    f.write(resp.content)
+
+                saved_paths.append(save_path)
+
+            except Exception as e:
+                print(f"[下载失败] {proxy_url}，错误：{str(e)}")
+                continue  # 失败一张不影响其他
+
         return saved_paths
 
 

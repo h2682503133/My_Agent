@@ -215,9 +215,9 @@ class ToolManager:
         self.register_tool("skill-list-simple", skill_list_simple)
         self.register_tool("skill-delete", skill_delete)
 
-        self.register_tool("skill_abstract", skill_abstract)
-        self.register_tool("skill_overview", skill_overview)
-        self.register_tool("skill_exec", skill_exec)
+        self.register_tool("skill-abstract", skill_abstract)
+        self.register_tool("skill-overview", skill_overview)
+        self.register_tool("skill-exec", skill_exec)
 
         # 注册原生工具
         self.register_tool("shell", shell)

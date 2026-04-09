@@ -1,6 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
+import time
 import requests
 import asyncio
 import re
@@ -71,6 +72,7 @@ class Agent:
         call_agent.send(task)
         result=None
         while len(task.agent_context)>0:
+            time.sleep(2)
             debug_log(f"此处为弹回复栈，当前栈长{len(task.agent_context)}")
             context = task.pop_context()  # 出栈，拿到字典
             task.target = context["from"]
@@ -79,8 +81,33 @@ class Agent:
             task.set_temp_dialog_input(result)
             task.target.send(task)
         #此处为总结预留
+        context=""
+        if len(task.tool_log)>10:
+            debug_log(f"共{len(task.tool_log)}条工具调用记录，开始总结")
+            for i in task.tool_log:
+                context=context+i
+            task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标仅从下面的工具调用过程中筛选出不重复的对提高工具调用正确率来说有用的事实，主要着重于工具调用的方式上，不要自己添加信息,如果没有，请回答“无可用经验”\n{context}")
+            Agent.get_agent("reader",task.user.session_id).send(task)
+            context = task.consume_temp_dialog_output()
+            if "无可用经验" not in context:
+                Agent.get_agent("tool",task.user.session_id).add_message("user",task.content)
+                Agent.get_agent("tool", task.user.session_id).add_message("assistant", "本次任务需要注意"+context)
+
+        context = ""
+        if len(task.main_log)>3:
+            debug_log(f"共{len(task.main_log)}条智能体调度记录，开始总结")
+            for i in task.main_log:
+                context = context + i
+            task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标从下面的智能体调度过程中总结出对“如何向其他智能体更准确地表达”有用的经验，如果没有，请回答“无可用经验”\n{context}")
+            Agent.get_agent("reader", task.user.session_id).send(task)
+            context=task.consume_temp_dialog_output()
+            if "无可用经验" not in context:
+                Agent.get_agent("tool", task.user.session_id).add_message("user", task.content)
+                Agent.get_agent("tool", task.user.session_id).add_message("assistant","本次任务需要注意" + context)
+
         call_agent.add_message("user", f"<{task.user.session_id}>" + task.content)
         call_agent.add_message("assistant", result)
+        task.status="completed"
 
     @classmethod
     def get_agent(cls, agent_id: str, session_id) -> "Agent":
@@ -195,9 +222,11 @@ class Agent:
             # 非字符串/None → 按你指定格式拼接
             if content is not None:
                 if content[0]==content[2]:
+                    task.tool_log.append("结果" + content[3])
                     content=f"\n{content[1]}，\n结果{content[3]}"
                 else:
                     content = f"{content[0]}的请求：\n{content[1]},\n收到来自{content[2]}的回复：\n{content[3]}"
+                    task.main_log.append(content)
             else:
                 content = "当你看到这条消息时，意味着出现某些问题导致输入为空了"
         task.set_temp_dialog_input(content)
@@ -212,34 +241,65 @@ class Agent:
             {"role": "system", "content": "以下为本次单轮对话内容"},
             {"role": "user", "content": f"<{task.caller.id}>" + content}]
         # 2. 调用大模型
+        # 读取配置
         api_url = self.config["api_url"]
+        method = self.config.get("method", "POST")
         model = self.config["model"]
+        api_key = self.config.get("api_key", "")
 
-        try:
-            resp = requests.post(
-                api_url,
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "stream": False  # 强制关闭流式输出，保证返回完整JSON
-                },
-                timeout=600
-            )
-            resp.raise_for_status()
-            task.set_temp_dialog_output(resp)
-            self.parse_response(task)
-            self.parse_syntax(task)
-            result = task.consume_temp_dialog_output()
-        # 捕获模型超时/网络错误
-        except Exception as e:
-            # 🔥 兜底：返回错误结果，防止后续取键崩溃
+        # 请求头
+        headers = {"Content-Type": "application/json"}
+        if api_key.strip():
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            # 请求体
+        json_data = {
+                "model": model,
+                "messages": messages,
+                "temperature" : self.config.get("temperature", 1),
+                "stream": False
+        }
+
+        resp = None
+        success = False
+
+        # 500 重试 1 次
+        for attempt in range(2):
+            try:
+                if method.upper() == "GET":
+                    resp = requests.get(api_url, headers=headers, json=json_data, timeout=240)
+                else:
+                    resp = requests.post(api_url, headers=headers, json=json_data, timeout=240)
+
+                if resp.status_code < 500:
+                    success = True
+                    break
+                print(f"模型返回 500 错误，重试第 {attempt+1} 次...")
+            except Exception as e:
+                print(f"请求异常：{str(e)}")
+                continue
+
+        task.set_temp_dialog_output(resp)
+        parse_response(self,task)
+        parse_syntax(self,task)
+        result = task.consume_temp_dialog_output()
+
+        # 最终失败 → 返回你统一的错误格式
+        if not success or resp is None:
             result = {
-                "final_reply": f"【模型请求失败】{str(e)}",
+                "final_reply": "【模型请求失败】API 调用超时，请稍后重试",
                 "tool_call": None,
                 "agent_call": None
-            }
+                }
 
+    # HTTP 错误（4xx等）
+        if resp.status_code >= 400:
+            result= {
+                "final_reply": f"【模型返回错误】{resp.status_code} {resp.text}",
+                "tool_call": None,
+                "agent_call": None
+                }
+            
         # ======================
         # 你的原有逻辑（完全保留）
         # ======================

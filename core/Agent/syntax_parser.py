@@ -1,7 +1,21 @@
 from core.logger import chat_log
+def clean_ai_thinking(text: str) -> str:
+    """彻底清洗 AI 思考内容，防止语法解析误触发"""
+    def clean_ai_thinking(text: str) -> str:
+        if not text or not isinstance(text, str):
+            return ""
+    
+    # 🔥 核心：只保留 </think> 之后的内容
+    if "</think>" in text:
+        text = text.split("</think>")[-1]
+
+    return text.strip()
+
 
 def parse_syntax(self, task):
     raw_text = task.consume_temp_dialog_output()
+    raw_text = clean_ai_thinking(raw_text)
+
     reply = raw_text.strip()
     command = ""
     agent_call = None
@@ -17,7 +31,12 @@ def parse_syntax(self, task):
         line = line.replace("：", ":")
 
         # 调用其他智能体
-        if line.startswith("对话:"):
+        if "对话:" in line:
+            # 切割掉 "对话:" 之前的所有内容，只保留后面的
+            idx = line.find("对话:")
+            line = line[idx:] 
+
+            # 你原来的逻辑不变
             content = line.replace("对话:", "").strip()
             parts = [p.strip() for p in content.split("|") if p.strip()]
             if len(parts) >= 2:
@@ -32,7 +51,9 @@ def parse_syntax(self, task):
             line = line.replace("工具调用:", "").strip()
 
             memory = task.consume_temp_dialog_input()
+            memory = memory if memory else "本条记录因不知名原因丢失"
             memory = memory + "\n调用了工具:" + line
+            task.tool_log.append("调用了工具:" + line)
             task.push_context(self, memory)
             # 剩余逻辑完全不变，解析标准工具格式
             parts = line.split("|")

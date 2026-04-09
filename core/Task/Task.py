@@ -37,7 +37,7 @@ class Task:
         self.target=None
         self.temp_dialog_input = None
         self.temp_dialog_output= None
-        
+
         self.set_temp_dialog_input(content)
         self.push_context(user,content)
         # ==================== 结果与反思 ====================
@@ -47,7 +47,8 @@ class Task:
         self.reflection = ""
 
         # ==================== 记忆日志（用于总结反思） ====================
-        self.memory_log = []
+        self.tool_log = []
+        self.main_log = []
 
         
 

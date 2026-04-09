@@ -1,14 +1,19 @@
 {
   "main": {
-    "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "qwen3-vl:235b-cloud",
+    "api_url": "https://api.moonshot.cn/v1/chat/completions",
+    "method": "POST",
+    "model": "kimi-k2-thinking",
+    "api_key": "sk-",
+    "temperature": 1,
     "files": [
       "SOUL.md"
     ]
   },
   "tool": {
     "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "qwen3-vl:235b-cloud",
+    "method": "POST",
+    "model": "qwen3.5:9b",
+    "temperature": 0.8,
     "files": [
       "SOUL.md",
       "TOOL.md"
@@ -16,17 +21,35 @@
   },
   "reader": {
     "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "MFDoom/deepseek-r1-tool-calling:14b",
+    "method": "POST",
+    "model": "qwen3:14b",
+    "temperature": 0.6,
     "files": [
       "SOUL.md"
     ]
   },
   "talker":{
     "api_url": "http://127.0.0.1:11434/api/chat",
+    "method": "POST",
     "model": "qwen3:14b",
+    "temperature": 1.4,
     "files": [
       "SOUL.md",
       "IDENTITY.md"
     ]
+  },
+  "lilith":{
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "method": "POST",
+    "model": "qwen3:14b",
+    "temperature": 1.6,
+    "files": [
+      "SOUL.md",
+      "IDENTITY.md"
+    ]
+  },
+  "unused":{
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "model": "qwen3-vl:235b-cloud"
   }
 }

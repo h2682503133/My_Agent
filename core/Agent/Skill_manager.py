@@ -37,7 +37,7 @@ class SkillManager:
         # ================================
         # 🔥 调用独立接口：添加技能到 OpenViking
         # ================================
-        add_result = self.add_skill_to_openviking(skill_md_path)
+        add_result = self.add_skill_to_viking(skill_slug)
 
         if add_result.startswith("✅"):
             return f"✅ 安装并导入 Viking 知识库：{skill_slug}\n{add_result}\n{result}"
@@ -127,7 +127,7 @@ class SkillManager:
             uri = f"viking://agent/skills/{skill_name}/.abstract.md"
             return self.client.read(uri) or "无简介"
         except:
-            return "读取 abstract 失败"
+            return f"读取 abstract 失败,请检查知识库中是否有名为{skill_name}的技能"
 
     def skill_overview(self, skill_name: str) -> str:
         """
@@ -138,7 +138,7 @@ class SkillManager:
             uri = f"viking://agent/skills/{skill_name}/.overview.md"
             return self.client.read(uri) or "无使用说明"
         except:
-            return "读取 overview 失败"
+            return f"读取 overview 失败,请检查知识库中是否有名为{skill_name}的技能"
 
     def skill_exec(self, skill_name: str) -> str:
         """
@@ -149,7 +149,7 @@ class SkillManager:
             uri = f"viking://agent/skills/{skill_name}/SKILL.md"
             return self.client.read(uri) or "无执行文档"
         except:
-            return "读取 SKILL.md 失败"
+            return f"读取 SKILL.md 失败,请检查知识库中是否有名为{skill_name}的技能"
 
     def run_skill(self, skill_name: str, *args):
         try:

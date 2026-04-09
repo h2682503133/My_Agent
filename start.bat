@@ -58,7 +58,8 @@ echo.
 echo ✅ 服务启动完成！当前窗口为【总控制台】
 echo.
 
-echo 请输入web或qq 在两种连接方式中至少选一种
+echo 请输入web或qq,在两种连接方式中至少选一种
+
 :console
 set /p "cmd=>>> 请输入命令："
 

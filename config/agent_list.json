@@ -27,29 +27,5 @@
     "files": [
       "SOUL.md"
     ]
-  },
-  "talker":{
-    "api_url": "http://127.0.0.1:11434/api/chat",
-    "method": "POST",
-    "model": "qwen3:14b",
-    "temperature": 1.4,
-    "files": [
-      "SOUL.md",
-      "IDENTITY.md"
-    ]
-  },
-  "lilith":{
-    "api_url": "http://127.0.0.1:11434/api/chat",
-    "method": "POST",
-    "model": "qwen3:14b",
-    "temperature": 1.6,
-    "files": [
-      "SOUL.md",
-      "IDENTITY.md"
-    ]
-  },
-  "unused":{
-    "api_url": "http://127.0.0.1:11434/api/chat",
-    "model": "qwen3-vl:235b-cloud"
   }
 }

@@ -221,4 +221,5 @@ workspace/
 logs/
 core/__pycache__/
 skills/
-system_programs/lilith
+system_prompt/lilith
+

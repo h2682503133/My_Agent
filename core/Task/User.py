@@ -17,14 +17,32 @@ class User:
         self.output = output
 
     def send(self, task) -> None:
-        text=task.consume_temp_dialog_input()
-        if not isinstance(text, str):
-            if task is not None:
-                text=f"{text[2]}:{text[3]}"
-            else: text="空回复"
 
+        images = task.send_images or []
+        text = task.send_text or ""
+
+        if len(task.send_images)==0 and  task.send_text=="":
+            text = task.consume_temp_dialog_input()
+        
+            # 处理文本
+            if not isinstance(text, str):
+                if task is not None:
+                    text = f"{text[2]}:{text[3]}"
+                else:
+                    text = "空回复"
+
+        # 读取图片（从 task 专用变量）
         """
         统一消息发送入口
-        仅执行底层发送，不做任何状态/栈判断
+        文本 + 图片 分离，全渠道兼容
         """
-        self.output.send(text)
+        # 传给 output：结构通用
+        self.output.send({
+            "user_id": self.id,
+            "text": text,
+            "images": images
+        })
+
+        # 重要：发完清空中间变量（避免重复发）
+        task.send_images = []
+        task.send_text = ""

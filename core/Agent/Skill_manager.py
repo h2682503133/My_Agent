@@ -3,7 +3,7 @@ import openviking as ov
 import subprocess
 from pathlib import Path
 import shutil
-
+from core.Task.Task import Task
 class SkillManager:
     _instance = None
 
@@ -20,31 +20,31 @@ class SkillManager:
     # 🔥 官方：ClawHub 搜索（调用 CLI）
     # 命令：clawhub search 关键词
     # ======================
-    def clawhub_search(self, keyword: str):
+    def clawhub_search(self,task: Task, keyword: str):
         from core.Agent.Tool_manager import tool_manager
-        return tool_manager.shell(f"clawhub search {keyword}")
+        return tool_manager.shell(task,f"clawhub search {keyword}")
 
-    def clawhub_install(self, skill_slug: str):
+    def clawhub_install(self,task: Task, skill_slug: str):
         from core.Agent.Agent import Agent
         from core.Agent.Tool_manager import tool_manager
         skill_dir = Path(Agent.BASE_ROOT_DIR) / "skills"
         skill_dir.mkdir(exist_ok=True)
 
         # 安装技能到本地
-        result = tool_manager.shell(f"clawhub install {skill_slug} --dir {skill_dir} --force")
+        result = tool_manager.shell(task,f"clawhub install {skill_slug} --dir {skill_dir} --force")
         skill_md_path = skill_dir / skill_slug / "SKILL.md"
 
         # ================================
         # 🔥 调用独立接口：添加技能到 OpenViking
         # ================================
-        add_result = self.add_skill_to_viking(skill_slug)
+        add_result = self.add_skill_to_viking(task,skill_slug)
 
         if add_result.startswith("✅"):
             return f"✅ 安装并导入 Viking 知识库：{skill_slug}\n{add_result}\n{result}"
         else:
             return f"⚠️ 安装成功，但导入技能失败：{add_result}\n{result}"
     
-    def add_skill_to_viking(self, skill_slug: str) -> str:
+    def add_skill_to_viking(self,task: Task, skill_slug: str) -> str:
         from core.Agent.Agent import Agent
         try:
             # 路径规则 和之前完全一样
@@ -60,12 +60,12 @@ class SkillManager:
         except Exception as e:
             return f"❌ 导入技能失败：{str(e)}"
 
-    def clawhub_list(self, *args):
+    def clawhub_list(self,task: Task, *args):
 
         from core.Agent.Tool_manager import tool_manager
-        return tool_manager.shell("clawhub list")
+        return tool_manager.shell(task,"clawhub list")
 
-    def skill_delete(self, skill_slug: str):
+    def skill_delete(self,task: Task, skill_slug: str):
         from core.Agent.Agent import Agent
         from core.Agent.Tool_manager import tool_manager
         import shutil
@@ -78,7 +78,7 @@ class SkillManager:
             pass  # 就算删不掉也继续执行系统删除
 
         # 2. 执行 clawhub 卸载命令
-        result = tool_manager.shell(f"clawhub uninstall --yes {skill_slug}")
+        result = tool_manager.shell(task,f"clawhub uninstall --yes {skill_slug}")
 
         # 3. 强制删除本地技能文件夹（彻底清理）
         skill_dir = Path(Agent.BASE_ROOT_DIR) / "skills" / skill_slug
@@ -87,7 +87,7 @@ class SkillManager:
 
         return f"✅ 技能已完全卸载（Viking 已移除 + 文件夹已删除）：{skill_slug}\n{result}"
 
-    def skill_list(self, *args):
+    def skill_list(self,task: Task, *args):
         """列出 Viking 知识库中所有技能（100% 不会报错版）"""
         try:
             # 官方API：列出技能
@@ -109,7 +109,7 @@ class SkillManager:
             # 错误信息也一定是字符串
             return f"❌ 获取技能列表失败：{str(e)}"
 
-    def skill_list_simple(self, *args):
+    def skill_list_simple(self,task: Task, *args):
         try:
             names = self.client.ls("viking://agent/skills/", simple=True)
             if not names:
@@ -118,7 +118,7 @@ class SkillManager:
         except:
             return "❌ 获取失败"
 
-    def skill_abstract(self, skill_name: str) -> str:
+    def skill_abstract(self,task: Task, skill_name: str) -> str:
         """
         获取技能简介（.abstract.md）
         返回：原始字符串
@@ -129,7 +129,7 @@ class SkillManager:
         except:
             return f"读取 abstract 失败,请检查知识库中是否有名为{skill_name}的技能"
 
-    def skill_overview(self, skill_name: str) -> str:
+    def skill_overview(self,task: Task, skill_name: str) -> str:
         """
         获取技能使用说明（.overview.md）
         返回：原始字符串
@@ -140,7 +140,7 @@ class SkillManager:
         except:
             return f"读取 overview 失败,请检查知识库中是否有名为{skill_name}的技能"
 
-    def skill_exec(self, skill_name: str) -> str:
+    def skill_exec(self,task: Task, skill_name: str) -> str:
         """
         获取技能执行文档（SKILL.md）
         返回：原始字符串
@@ -151,7 +151,7 @@ class SkillManager:
         except:
             return f"读取 SKILL.md 失败,请检查知识库中是否有名为{skill_name}的技能"
 
-    def run_skill(self, skill_name: str, *args):
+    def run_skill(self,task: Task, skill_name: str, *args):
         try:
             from core.Agent.Tool_manager import tool_manager
             import os
@@ -175,7 +175,7 @@ class SkillManager:
             cmd = f'cd "{skill_dir}" ; python scripts/{skill_name}.py {arg_str}'
 
             # 执行：显示完整报错 + 中文不乱码
-            output=tool_manager.shell(cmd)
+            output=tool_manager.shell(task,cmd)
 
             return f"【? 执行成功：{skill_name}】\n命令：{cmd}\n结果：{output}"
 
@@ -183,7 +183,7 @@ class SkillManager:
             # ======================
             # 只有 文件不存在 才会走到这里
             # ======================
-            doc = self.skill_overview(skill_name)
+            doc = self.skill_overview(task,skill_name)
             return doc
 # 单例
 skill_manager = SkillManager()

@@ -37,14 +37,13 @@ class Task:
         self.target=None
         self.temp_dialog_input = None
         self.temp_dialog_output= None
+        self.main_memory = [] #原本是打算全依赖临时对话输入，但实测发现main被调用的频率不高，就添加记忆
 
         self.set_temp_dialog_input(content)
         self.push_context(user,content)
-        # ==================== 结果与反思 ====================
-        # 最终输出结果
-        self.final_result = ""
-        # 总结反思内容
-        self.reflection = ""
+        # ==================== 中间过程发送的临时存放 ====================
+        self.send_images = []
+        self.send_text = ""
 
         # ==================== 记忆日志（用于总结反思） ====================
         self.tool_log = []

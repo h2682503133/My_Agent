@@ -1,7 +1,16 @@
+import json
 import subprocess
 import requests
 import os
+from core.Task.Task import Task
+with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
+    CONFIG = json.load(f)
 
+# 读取图片服务配置
+IMAGE_SERVER_CFG = CONFIG["image_server"]
+IMAGE_SERVER_HOST = IMAGE_SERVER_CFG["host"]
+IMAGE_SERVER_PORT = IMAGE_SERVER_CFG["port"]
+IMAGE_ASSET_DIR = IMAGE_SERVER_CFG["asset_dir"]
 class ToolManager:
     _instance = None
 
@@ -15,20 +24,20 @@ class ToolManager:
     def register_tool(self, name, func):
         self.tools[name] = func
 
-    def run_tool(self, name: str, *args, **kwargs):
+    def run_tool(self, task: Task, name: str, *args, **kwargs):
         if name not in self.tools:
             return f"【错误】工具 {name} 未实现"
         try:
-            return self.tools[name](*args, **kwargs)
+            return self.tools[name](task,*args, **kwargs)
         except Exception as e:
             return f"【工具错误】{name} 执行失败：{str(e)}"
 
-    def shell(self, command: str):
-        return self.run_tool("shell", [command])
+    def shell(self,task, command: str):
+        return self.run_tool(task,"shell", [command])
     # 仅注册：原生底层工具（纯Tools，无Skills）
     def register_native_tools(self):
 
-        def shell(*args):
+        def shell(task: Task,*args):
             from core.Agent.Agent import Agent
             try:
 
@@ -72,14 +81,14 @@ class ToolManager:
 
             except Exception as e:
                 return f"执行异常：{str(e)}"
-        def fetch(url: str, method="GET", data=None):
+        def fetch(task: Task,url: str, method="GET", data=None):
             try:
                 r = requests.get(url, timeout=10) if method.upper() == "GET" else requests.post(url, json=data, timeout=10)
                 return r.text
             except:
                 return "请求失败"
 
-        def websearch(query: str):
+        def websearch(task: Task,query: str):
             try:
                 from bs4 import BeautifulSoup
 
@@ -130,7 +139,7 @@ class ToolManager:
             except Exception as e:
                 return f"搜索失败：{str(e)}"
 
-        def file_read(path: str):
+        def file_read(task: Task,path: str):
             from core.Agent.Agent import Agent
             import os
             try:
@@ -143,7 +152,7 @@ class ToolManager:
             except:
                 return "读取失败"
 
-        def file_write(path: str, content: str):
+        def file_write(task: Task,path: str, content: str):
             from core.Agent.Agent import Agent
             import os
             try:
@@ -157,7 +166,7 @@ class ToolManager:
             except:
                 return "写入失败"
 
-        def codex(*args):
+        def codex(task: Task,*args):
             from core.Agent.Agent import Agent
             if len(args) == 1:
                 working_dir = Agent.BASE_ROOT_DIR / "workspace"
@@ -174,38 +183,75 @@ class ToolManager:
                 return result.stdout.strip() or result.stderr.strip()
             except Exception as e:
                 return f"Codex 调用失败：{str(e)}"
+            
+        def get_image_url_from_local(task: Task, local_path: str) -> str:
+            from core.Agent.Agent import Agent
+            workspace = Agent.BASE_ROOT_DIR / "workspace"
+            if not os.path.isabs(local_path):
+                local_path = os.path.join(workspace, local_path)
+
+            # 2. 检查文件是否存在
+            if not os.path.exists(local_path):
+                return f"本地文件不存在：{local_path}"
+
+            # 3. 提取文件名
+            filename = os.path.basename(local_path)
+            target_path = os.path.join(IMAGE_ASSET_DIR, filename)
+
+            # 4. 复制到图床目录
+            try:
+                with open(local_path, "rb") as fsrc:
+                    with open(target_path, "wb") as fdst:
+                        fdst.write(fsrc.read())
+            except Exception as e:
+                return f"复制图片失败：{str(e)}"
+
+            # 5. 生成最终可访问 URL
+            url = f"http://127.0.0.1:{IMAGE_SERVER_PORT}/{filename}"
+
+            return f"此图片URL为：{url}"
+        def send_image_by_url(task: Task, image_url: str) -> str:
+            """
+            发送网络图片（直接填 URL）
+            """
+            if not image_url:
+                return "❌ 图片 URL 不能为空"
+            
+            task.send_images.append(image_url)
+            task.user.send(task)
+            return f"URL为{image_url}的图片已发送"
 
         #注册skill管理方法
         from core.Agent.Skill_manager import skill_manager
 
-        def clawhub_search(keyword: str):
-            return skill_manager.clawhub_search(keyword)
+        def clawhub_search(task: Task,keyword: str):
+            return skill_manager.clawhub_search(task,keyword)
 
-        def clawhub_install(skill_slug: str):
-            return skill_manager.clawhub_install(skill_slug)
+        def clawhub_install(task: Task,skill_slug: str):
+            return skill_manager.clawhub_install(task,skill_slug)
 
-        def clawhub_list():
-            return skill_manager.clawhub_list()
+        def clawhub_list(task: Task):
+            return skill_manager.clawhub_list(task)
 
-        def skill_list():
-            return skill_manager.skill_list()
+        def skill_list(task: Task):
+            return skill_manager.skill_list(task)
 
-        def skill_list_simple():
-            return skill_manager.skill_list_simple()
+        def skill_list_simple(task: Task):
+            return skill_manager.skill_list_simple(task)
 
-        def skill_delete(skill_slug: str):
-            return skill_manager.skill_delete(skill_slug)
+        def skill_delete(task: Task,skill_slug: str):
+            return skill_manager.skill_delete(task,skill_slug)
 
-        def skill_abstract(skill_name: str):
-            return skill_manager.skill_abstract(skill_name)
+        def skill_abstract(task: Task,skill_name: str):
+            return skill_manager.skill_abstract(task,skill_name)
 
-        def skill_overview(skill_name: str):
-            return skill_manager.skill_overview(skill_name)
+        def skill_overview(task: Task,skill_name: str):
+            return skill_manager.skill_overview(task,skill_name)
 
-        def skill_exec(skill_name: str):
-            return skill_manager.skill_exec(skill_name)
-        def add_skill_to_viking(skill_name: str):
-            return skill_manager.add_skill_to_viking(skill_name)
+        def skill_exec(task: Task,skill_name: str):
+            return skill_manager.skill_exec(task,skill_name)
+        def add_skill_to_viking(task: Task,skill_name: str):
+            return skill_manager.add_skill_to_viking(task,skill_name)
         
         self.register_tool("add-skill-to-viking", add_skill_to_viking)
         self.register_tool("clawhub-search", clawhub_search)
@@ -226,5 +272,7 @@ class ToolManager:
         self.register_tool("file-read", file_read)
         self.register_tool("file-write", file_write)
         self.register_tool("codex", codex)
+        self.register_tool("get-image-url-from-local", get_image_url_from_local)
+        self.register_tool("send-image-by-url", send_image_by_url)
 
 tool_manager = ToolManager()

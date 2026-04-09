@@ -227,6 +227,8 @@ class Agent:
                 else:
                     content = f"{content[0]}的请求：\n{content[1]},\n收到来自{content[2]}的回复：\n{content[3]}"
                     task.main_log.append(content)
+                    if(content[0]=="main"):
+                        task.main_memory.append(content)
             else:
                 content = "当你看到这条消息时，意味着出现某些问题导致输入为空了"
         task.set_temp_dialog_input(content)
@@ -236,6 +238,13 @@ class Agent:
 
         # 1. 添加用户输入到历史
         messages = [{"role": "system", "content": self.system_prompt}] + context
+
+        if self.id == "main":
+            memory="以下是你在本次任务中的记忆:"
+            for i in task.main_memory:
+                memory+="\n"+i
+            messages += [{"role": "system", "content": memory }]
+        
         messages += [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分\n下面是该任务用户原始请求"}] + [
             {"role": "user", "content": f"<{task.user.id}>" + task.content},
             {"role": "system", "content": "以下为本次单轮对话内容"},
@@ -349,10 +358,10 @@ class Agent:
         try:
             if tool_name in tool_manager.tools:
                 # 1. 优先执行原生工具（shell/file-read/codex等）
-                output = tool_manager.run_tool(tool_name, *args)
+                output = tool_manager.run_tool(task,tool_name, *args)
             else:
                 # 2. 无原生工具 → 自动执行 OpenViking 技能（ClawHub下载的技能）
-                output = skill_manager.run_skill(tool_name, *args)
+                output = skill_manager.run_skill(task,tool_name, *args)
 
         except Exception as e:
             output = f"工具执行失败：{str(e)}"

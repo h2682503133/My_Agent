@@ -9,6 +9,8 @@
 - file-read|文件路径 - 读取文件
 - file-write|文件路径|内容 - 写入文件
 - codex|工作目录|需求 - 生成代码
+- get-image-url-from-local|文件路径 - 获取本地图片的url
+- send-image-by-url|url - 通过图片的url向用户发送图片
 
 ### 技能管理:
 - clawhub-search|关键词 - 搜索可下载的技能 **注意关键词只能是英文**

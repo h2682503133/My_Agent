@@ -58,9 +58,18 @@ qq_app = Flask("qq_bridge")
 def on_recv_from_main():
     data = request.get_json()
     user_id = data["user_id"]
-    text = data["text"]
+    payload = data  # { text: "...", images: [] }
+
+    text = payload.get("text", "")
+    images = payload.get("images", [])
+
+    # QQ 专用拼接
+    msg = text
+    for url in images:
+        msg += f"\n[img]({url})"
+
     if user_id in qq_sessions:
-        qq_sessions[user_id].send(text)
+        qq_sessions[user_id].send(msg)
     return jsonify(ok=1)
 
 

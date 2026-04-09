@@ -46,13 +46,15 @@ def queue_stream():
     if not user_id:
         return "", 401
 
-    q = queue.Queue()
-    user_streams[user_id] = q
+    if user_id not in user_streams:
+        user_streams[user_id] = queue.Queue()
+
+    q = user_streams[user_id]
 
     def gen():
         while True:
             msg = q.get()
-            msg = msg.replace('\n', '\\n')
+            print(msg)
             yield f"data: {msg}\n\n"
 
     return Response(gen(), mimetype="text/event-stream")
@@ -82,10 +84,10 @@ def chat():
 def receive_from_main():
     data = request.json
     user_id = data.get("user_id")
-    text = data.get("text")
+    payload = data  # text, images
 
     if user_id in user_streams:
-        user_streams[user_id].put(text)
+        user_streams[user_id].put(json.dumps(payload, ensure_ascii=False))
 
     return jsonify(ok=1)
 

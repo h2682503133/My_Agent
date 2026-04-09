@@ -24,12 +24,13 @@ LOG_PORT = CONFIG["log"]["port"]
 # ======================
 # 统一发送出口（send 函数极简）
 # ======================
-def send_to_channel(user_id, text, callback_port):
+def send_to_channel(payload, callback_port):
     url = f"http://127.0.0.1:{callback_port}/send"
+
     try:
-        requests.post(url, json={"user_id": user_id, "text": text}, timeout=5)
+        requests.post(url, json=payload, timeout=5)
     except Exception as e:
-        print(f"[MAIN] 发送失败 {callback_port}: {e}")
+        print(f"[发送] 失败: {e}")
 
 # ======================
 # 接收渠道消息
@@ -48,8 +49,10 @@ def submit_task_api():
         def __init__(self, user_id, callback_port):
             self.user_id = user_id
             self.callback_port = callback_port
-        def send(self, text):
-            send_to_channel(self.user_id, text, self.callback_port)
+
+        def send(self, payload):
+            # 直接转发你传的字典
+            send_to_channel(payload, self.callback_port)
 
     output = RemoteOutput(user_id, callback_port)
     user = User(user_id, f"{channel_id}_{user_id}", output)

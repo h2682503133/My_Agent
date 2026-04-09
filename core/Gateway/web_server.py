@@ -52,6 +52,7 @@ def queue_stream():
     def gen():
         while True:
             msg = q.get()
+            msg = msg.replace('\n', '\\n')
             yield f"data: {msg}\n\n"
 
     return Response(gen(), mimetype="text/event-stream")

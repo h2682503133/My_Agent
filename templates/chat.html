@@ -25,7 +25,7 @@
             .user{margin-left:auto;justify-content:flex-end}
             .user .bubble{background:#0099ff;color:white;padding:12px 16px;border-radius:18px 18px 0 18px}
             .agent{margin-right:auto;justify-content:flex-start}
-            .agent .bubble{background:#e5e5ea;color:#333;padding:12px 16px;border-radius:18px 18px 18px 0}
+            .agent .bubble{background:#e5e5ea;color:#333;padding:12px 16px;border-radius:18px 18px 18px 0;white-space: pre-wrap;word-break:break-all;}
             .input{
                 display:flex;
                 gap:10px;
@@ -61,6 +61,7 @@
         <script>
             // 保留你原有函数
             function addMsg(role, text) {
+                text = text.replace(/\\n/g, "\n");
                 let chat = document.getElementById('chat');
                 let cls = role === 'user' ? 'user msg' : 'agent msg';
                 let html = `<div class="${cls}"><div class="bubble">${text}</div></div>`;

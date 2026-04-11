@@ -140,7 +140,7 @@ class SkillManager:
         except:
             return f"读取 overview 失败,请检查知识库中是否有名为{skill_name}的技能"
 
-    def skill_exec(self,task: Task, skill_name: str) -> str:
+    def skill_manual(self,task: Task, skill_name: str) -> str:
         """
         获取技能执行文档（SKILL.md）
         返回：原始字符串

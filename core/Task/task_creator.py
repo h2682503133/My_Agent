@@ -57,8 +57,12 @@ def submit_task_api():
     output = RemoteOutput(user_id, callback_port)
     user = User(user_id, f"{channel_id}_{user_id}", output)
     try:
+        print(Task.task_map)
         task = Task.task_map[user_id]
-        task.set_temp_dialog_input(content)
+        task.set_temp_dialog_output(content)
+        Task.remove_pending_task(user_id)
+        task.status = "waiting"
+        
     except KeyError:
         task_name = f"task_{int(os.times()[4] * 1000)}_{user_id}"
         task = Task(task_name, user, content)

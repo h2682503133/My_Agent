@@ -65,50 +65,61 @@ class Agent:
             debug_log(f"加载历史会话成功: {self.id}_{self.session_id}")
         except:
             debug_log("创建新会话")
-
+    
     @classmethod
-    def process_task(cls,task):
-        call_agent=task.target
-        call_agent.send(task)
-        result=None
-        while len(task.agent_context)>0:
+    def process_task(cls,task:Task):
+        print(f"{task.user.id}的任务正被处理")
+        result=[task.user.id,task.content,"unknown","如果你看到这条信息，说明输出因某些原因丢失了"]
+        if len(task.agent_context)==1:
+            cls.first_call(task)
+            task.default_agent=task.target
+            task.default_agent.send(task)
+        while len(task.agent_context)>0 and task.status=="running":
             time.sleep(2)
             debug_log(f"此处为弹回复栈，当前栈长{len(task.agent_context)}")
             context = task.pop_context()  # 出栈，拿到字典
             task.target = context["from"]
             request = context["input"]
-            result= [task.target.id,request,task.caller.id,task.consume_temp_dialog_output()]
+            result= [task.target.id,request,task.caller.id,task.consume_temp_dialog_output() or "因不知名原因输出已丢失"]
             task.set_temp_dialog_input(result)
             task.target.send(task)
-        #此处为总结预留
-        context=""
-        if len(task.tool_log)>10:
-            debug_log(f"共{len(task.tool_log)}条工具调用记录，开始总结")
-            for i in task.tool_log:
-                context=context+i
-            task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标仅从下面的工具调用过程中筛选出不重复的对提高工具调用正确率来说有用的事实，主要着重于工具调用的方式上，不要自己添加信息,如果没有，请回答“无可用经验”\n{context}")
-            Agent.get_agent("reader",task.user.session_id).send(task)
-            context = task.consume_temp_dialog_output()
-            if "无可用经验" not in context:
-                Agent.get_agent("tool",task.user.session_id).add_message("user",task.content)
-                Agent.get_agent("tool", task.user.session_id).add_message("assistant", "本次任务需要注意"+context)
 
-        context = ""
-        if len(task.main_log)>3:
-            debug_log(f"共{len(task.main_log)}条智能体调度记录，开始总结")
-            for i in task.main_log:
-                context = context + i
-            task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标从下面的智能体调度过程中总结出对“如何向其他智能体更准确地表达”有用的经验，如果没有，请回答“无可用经验”\n{context}")
-            Agent.get_agent("reader", task.user.session_id).send(task)
-            context=task.consume_temp_dialog_output()
-            if "无可用经验" not in context:
-                Agent.get_agent("tool", task.user.session_id).add_message("user", task.content)
-                Agent.get_agent("tool", task.user.session_id).add_message("assistant","本次任务需要注意" + context)
+        #此处为总结
+        if task.status=="running":
+            task.status="completed"
+            context=""
+            if len(task.tool_log)>10:
+                debug_log(f"共{len(task.tool_log)}条工具调用记录，开始总结")
+                for i in task.tool_log:
+                    context=context+i
+                task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标仅从下面的工具调用过程中筛选出不重复的对提高工具调用正确率来说有用的事实，主要着重于工具调用的方式上，不要自己添加信息,如果没有，请回答“无可用经验”\n{context}")
+                Agent.get_agent("reader",task.user.session_id).send(task)
+                context = task.consume_temp_dialog_output()
+                if "无可用经验" not in context:
+                    Agent.get_agent("tool",task.user.session_id).add_message("user",task.content)
+                    Agent.get_agent("tool", task.user.session_id).add_message("assistant", "本次任务需要注意"+context)
 
-        call_agent.add_message("user", f"<{task.user.session_id}>" + task.content)
-        call_agent.add_message("assistant", result)
-        task.status="completed"
-
+            context = ""
+            if len(task.main_log)>3:
+                debug_log(f"共{len(task.main_log)}条智能体调度记录，开始总结")
+                for i in task.main_log:
+                    context = context + i
+                task.set_temp_dialog_input(f"本次的任务是\n{task.content}\n，请结合任务目标从下面的智能体调度过程中总结出对“如何向其他智能体更准确地表达”有用的经验，如果没有，请回答“无可用经验”\n{context}")
+                Agent.get_agent("reader", task.user.session_id).send(task)
+                context=task.consume_temp_dialog_output()
+                if "无可用经验" not in context:
+                    Agent.get_agent("tool", task.user.session_id).add_message("user", task.content)
+                    Agent.get_agent("tool", task.user.session_id).add_message("assistant","本次任务需要注意" + context)
+            debug_log(f"[session]任务完成{task.default_agent.id}开始记录记忆")
+            task.default_agent.add_message("user", f"<{task.user.session_id}>" + task.content)
+            task.default_agent.add_message("assistant", f"{result[2]}:{result[3]}")
+            commit_limit =task.default_agent.config.get("commit_limit",0)
+            commit_limit = commit_limit if commit_limit is not None else 0
+            print(commit_limit)
+            if  commit_limit and len(task.default_agent.ov_session.messages) > commit_limit :
+                debug_log(f"[session]-commit {task.default_agent.id}提交{len(task.default_agent.ov_session.messages)}条记录")
+                task.default_agent.ov_session.commit()
+            
     @classmethod
     def get_agent(cls, agent_id: str, session_id) -> "Agent":
         """
@@ -141,7 +152,7 @@ class Agent:
         return agent
 
     @classmethod
-    def user_chat(cls,task:Task):
+    def first_call(cls,task:Task):
         try:
             agent_id = Agent.default_agent[task.user.session_id]
         except (KeyError, TypeError, AttributeError):
@@ -151,35 +162,56 @@ class Agent:
         task.target=target
         chat_log(f"{task.user.session_id}->{target.id}\n{task.content}")
         debug_log(f"[user_chat]{task.user.session_id}->{target.id}")
-        return cls.process_task(task)
 
     def set_default_agent(self,agent_id):
         Agent.default_agent[self.session_id]=agent_id
 
     def get_context_sync(self, query: str):
-        """同步版本：从当前会话获取上下文"""
+        """同步版本：严格匹配真实返回结构，不丢内容、无报错"""
         try:
-            import asyncio
-            ctx = asyncio.run(self.ov_session.get_context_for_search(query=query))
+            ctx = asyncio.run(
+                self.ov_session.get_context_for_search(
+                    query=query,
+                    max_messages=16
+                )
+            )
+
             messages = []
-            # 仅保留最近16条 + 清理脏数据
-            for msg in ctx["current_messages"][-16:]:
+            # 打印真实上下文，调试用
+            # print("真实ctx:", ctx)
+
+            # 1. 最新归档历史（唯一的历史记录）
+            latest_archive = ctx.get("latest_archive_overview", "").strip()
+            if latest_archive:
+                messages.append({
+                    "role": "system",
+                    "content": f"历史记忆：{latest_archive}"
+                })
+
+            # 2. 当前会话消息（正确字段：current_messages）
+            for msg in ctx.get("current_messages", []):
+                if not msg.parts:
+                    continue
                 content = msg.parts[0].text
                 content = re.sub(r'</?think>', '', content).strip()
+                # 过滤无效前缀
                 if content and '智能体返回：' not in content:
-                    messages.append({"role": msg.role, "content": content})
+                    messages.append({
+                        "role": msg.role,
+                        "content": content
+                    })
 
-            # ✅【正确做法】在最前面插入一条系统提示，告诉模型这是历史记录
+            # 系统提示
             if messages:
                 messages.insert(0, {
                     "role": "system",
                     "content": "以下是你和用户的历史对话记录，请根据上下文继续回答"
                 })
 
-            return messages  # 👈 保持返回数组，模型完全识别
-        except:
+            return messages
+        except Exception as e:
+            print("获取上下文异常:", e)
             return []
-
     # ========== 你原样的添加消息函数（完全不动） ==========
     def add_message(self, role: str, content: str):
         self.ov_session.add_message(role, [TextPart(text=content)])
@@ -239,6 +271,8 @@ class Agent:
         # 1. 添加用户输入到历史
         messages = [{"role": "system", "content": self.system_prompt}] + context
 
+        #目前的对话内容构成 环境提示词+viking记忆(长期记忆+session记忆)+任务记忆(仅main)+用户原始请求+本次单轮对话请求(用户原始请求/自己的上次请求+回复内容/工具调用过程)
+
         if self.id == "main":
             memory="以下是你在本次任务中的记忆:"
             for i in task.main_memory:
@@ -276,9 +310,9 @@ class Agent:
         for attempt in range(2):
             try:
                 if method.upper() == "GET":
-                    resp = requests.get(api_url, headers=headers, json=json_data, timeout=240)
+                    resp = requests.get(api_url, headers=headers, json=json_data, timeout=150)
                 else:
-                    resp = requests.post(api_url, headers=headers, json=json_data, timeout=240)
+                    resp = requests.post(api_url, headers=headers, json=json_data, timeout=150)
 
                 if resp.status_code < 500:
                     success = True
@@ -327,6 +361,15 @@ class Agent:
             agent_call = result["agent_call"]
             task.set_temp_dialog_input(agent_call["content"])
             self.call_agent(agent_call["target_id"], task)
+
+        elif result["question"]:
+            debug_log(f"[询问] {self.id}")
+            task.status = "pause"
+            task.push_context(self,result["question"])
+            task.set_temp_dialog_input(f"{self.id}:{result['question']}")
+            task.user.send(task)
+            task.caller = task.user
+            Task.save_pending_task(task.user.id, task)
 
     # ==================== 智能体调用 ====================
     def call_agent(self, target_agent_id, task:Task):

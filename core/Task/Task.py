@@ -20,7 +20,7 @@ class Task:
         self.create_time = time.time()
         # 用户原始输入内容
         self.content = content
-
+        self.default_agent = None
         # ==================== 调度状态 ====================
         # 任务状态：waiting / running / pending / completed
         self.status = "waiting"

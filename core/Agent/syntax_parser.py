@@ -20,8 +20,10 @@ def parse_syntax(self, task):
     command = ""
     agent_call = None
     tool_call = None  # 新增:工具调用结构
+    question = None
 
     lines = raw_text.splitlines()
+
     for line in lines:
         line = line.strip()
         if not line:
@@ -63,6 +65,8 @@ def parse_syntax(self, task):
                 "tool": tool_name,
                 "args": args
             }
+        elif "询问:" in line:
+            question = line.strip()
 
         # 切换智能体
         elif line.startswith("切换:"):
@@ -74,11 +78,11 @@ def parse_syntax(self, task):
             if match:
                 agent_id = match.group(1).strip()
                 self.set_default_agent(agent_id)
-
     # 只返回结构化数据，不执行
     task.set_temp_dialog_output({
         "final_reply": reply,
         "reply": raw_text.strip(),
         "tool_call": tool_call,    # 工具:名称+参数
         "agent_call": agent_call,  # 对话:目标+内容
+        "question": question
     })

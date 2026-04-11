@@ -57,14 +57,14 @@ class PixivClient:
             save_path = os.path.join(self.download_dir, filename)
 
             # ====================== 我加的优化 ======================
-            # 1. 下载超时 30 秒（防止卡死）
+            # 1. 下载超时 40 秒（防止卡死）
             # 2. 异常捕获（网络失败不会崩整个脚本）
             # ======================================================
             try:
                 resp = requests.get(
                     proxy_url,
                     headers=self._headers(),
-                    timeout=30  # 👈 关键：单张图片下载超时30秒
+                    timeout=40  # 👈 关键：单张图片下载超时30秒
                 )
                 resp.raise_for_status()  # 404/500 直接抛错
 
@@ -107,10 +107,12 @@ def main():
         for item in items:
             print(f"[ID] {item['id']}")
             print(f"[标题] {item['title']}")
+            print(f"[作者] {item['userName']}")
             print(f"[分辨率] {item.get('width','?')}x{item.get('height','?')}")
             print(f"[页数] {item.get('pageCount',1)}")
             print(f"[标签] {', '.join(item.get('tags', []))}")
             print(f"[分级] {'R18' if item.get('xRestrict',0) else '全年龄'}")
+            print(f"[AI创作] {'是' if item.get('aiType',1)-1 else '否'}")
             print("-" * 60)
 
     elif args.cmd == "download":

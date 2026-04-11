@@ -1,0 +1,38 @@
+本文件作为样例，具体使用请将本注释部分和_example字段删掉
+仿照已有智能体的格式可以预制自己需要的智能体，但在此处添加的模型与提示词名称必须
+要与promote文件夹内一致否则会报错，且需要在GLOBAL_SETTING.md内添加，
+否则智能体不会知道有这么个智能体(当让你让它强行输入对话或者切换指令也可以，但它很抗拒)
+{
+  "main": {
+    "api_url": "https://api.moonshot.cn/v1/chat/completions",
+    "method": "POST",
+    "model": "kimi-k2-thinking",
+    "api_key": "key",
+    "temperature": 0.9,
+    "commit_limit": 15,
+    "files": [
+      "SOUL.md"
+    ]
+  },
+  "tool": {
+    "api_url": "http://127.0.0.1:11434/api/chat",
+    "method": "POST",
+    "model": "qwen3.5:9b",
+    "temperature": 0.7,
+    "commit_limit": 15,
+    "files": [
+      "SOUL.md",
+      "TOOL.md"
+    ]
+  },
+  "reader": {
+    "api_url": "API",
+    "method": "请求类型",
+    "model": "模型名称",
+    "temperature": "温度，越低越按设定，越高越自由",
+    "commit_limit": "session中有多少条记录才提交一次，用户和智能体均各算一条，为0不提交",
+    "files": [
+      "SOUL.md"
+    ]
+  },
+}

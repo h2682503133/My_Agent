@@ -57,7 +57,7 @@ class ToolManager:
                     ["powershell", "-NoProfile", "-Command", full_cmd],
                     capture_output=True,
                     text=False,
-                    timeout=20
+                    timeout=120 # 超时时间 120秒
                 )
 
                 # ✅ 安全解码
@@ -248,8 +248,8 @@ class ToolManager:
         def skill_overview(task: Task,skill_name: str):
             return skill_manager.skill_overview(task,skill_name)
 
-        def skill_exec(task: Task,skill_name: str):
-            return skill_manager.skill_exec(task,skill_name)
+        def skill_manual(task: Task,skill_name: str):
+            return skill_manager.skill_manual(task,skill_name)
         def add_skill_to_viking(task: Task,skill_name: str):
             return skill_manager.add_skill_to_viking(task,skill_name)
         
@@ -263,7 +263,7 @@ class ToolManager:
 
         self.register_tool("skill-abstract", skill_abstract)
         self.register_tool("skill-overview", skill_overview)
-        self.register_tool("skill-exec", skill_exec)
+        self.register_tool("skill-manual", skill_manual)
 
         # 注册原生工具
         self.register_tool("shell", shell)

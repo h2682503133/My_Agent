@@ -113,6 +113,7 @@ def run_task(task: Task, callback):
     gateway_log(f"{task.slot_index}号槽正处理{user_id}的请求，仅执行一次")
     try:
         def task_func():
+            task.status = "running"
             process_user_task(task)
 
         t = threading.Thread(target=task_func, daemon=True)
@@ -136,9 +137,6 @@ def run_task(task: Task, callback):
     if user_id in USER_QUEUES and not USER_QUEUES[user_id].empty():
         USER_QUEUES[user_id].get()
     
-    # 状态直接标记完成/失败
-    task.status = "completed" if success else "failed"
-
 # ======================
 # 通用提交接口（QQ/外部调用）
 # ======================

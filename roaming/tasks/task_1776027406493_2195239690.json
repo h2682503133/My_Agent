@@ -1,0 +1,10 @@
+{
+  "task_id": "task_1776027406493_2195239690",
+  "user_id": "2195239690",
+  "channel_id": "qq",
+  "callback_port": 5200,
+  "trigger_time": 1776027507.0,
+  "content": "蝶殇,该睡觉了,早点休息吧!",
+  "task_type": "send_message",
+  "created_at": "2026-04-13T04:56:46.493406"
+}

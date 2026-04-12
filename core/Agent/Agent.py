@@ -10,6 +10,7 @@ from collections import OrderedDict
 from core.Task.Task import Task
 from core.Agent.response_parser import parse_response
 from core.Agent.syntax_parser import parse_syntax
+from core.Task.timer_task import add_timer_task
 import openviking as ov
 from openviking.message import TextPart
 from core.Agent.Tool_manager import tool_manager  # 你的工具管理器
@@ -111,11 +112,12 @@ class Agent:
                     Agent.get_agent("tool", task.user.session_id).add_message("user", task.content)
                     Agent.get_agent("tool", task.user.session_id).add_message("assistant","本次任务需要注意" + context)
             debug_log(f"[session]任务完成{task.default_agent.id}开始记录记忆")
-            task.default_agent.add_message("user", f"<{task.user.session_id}>" + task.content)
-            task.default_agent.add_message("assistant", f"{result[2]}:{result[3]}")
+            if "切换" not in result[3]:
+                task.default_agent.add_message("user", f"<{task.user.session_id}>" + task.content)
+                task.default_agent.add_message("assistant", f"{result[2]}:{result[3]}")
             commit_limit =task.default_agent.config.get("commit_limit",0)
             commit_limit = commit_limit if commit_limit is not None else 0
-            print(commit_limit)
+
             if  commit_limit and len(task.default_agent.ov_session.messages) > commit_limit :
                 debug_log(f"[session]-commit {task.default_agent.id}提交{len(task.default_agent.ov_session.messages)}条记录")
                 task.default_agent.ov_session.commit()
@@ -365,11 +367,22 @@ class Agent:
         elif result["question"]:
             debug_log(f"[询问] {self.id}")
             task.status = "pause"
-            task.push_context(self,result["question"])
+            task.push_context(self,f"{content}<{self.id}>{result['question']}")
             task.set_temp_dialog_input(f"{self.id}:{result['question']}")
             task.user.send(task)
             task.caller = task.user
             Task.save_pending_task(task.user.id, task)
+        elif result["timer_task"]:
+            return_message=add_timer_task(
+            user_id=task.user.id,
+            channel_id = task.user.session_id.split("_")[0],
+            callback_port=task.user.output.callback_port,
+            trigger_timestamp=result["timer_task"]["trigger_timestamp"],
+            task_type=result["timer_task"]["task_type"],
+            content=result["timer_task"]["content"]
+        )
+            debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{result["timer_task"]["trigger_timestamp"]}')
+            task.set_temp_dialog_output(return_message)
 
     # ==================== 智能体调用 ====================
     def call_agent(self, target_agent_id, task:Task):

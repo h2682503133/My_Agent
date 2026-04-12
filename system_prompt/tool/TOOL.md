@@ -4,6 +4,7 @@
 ## 内置工具
 ### 可用工具：
 - shell|命令 - 执行PowerShell命令
+- list-workspace - 列出工作空间内所有文件
 - fetch|url|method|data - 发送HTTP请求
 - web-search|关键词 - 搜索网页
 - file-read|文件路径 - 读取文件

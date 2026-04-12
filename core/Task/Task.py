@@ -1,4 +1,5 @@
 
+import datetime
 import time
 from core.Task.User import User
 
@@ -39,7 +40,7 @@ class Task:
         self.temp_dialog_output= None
         self.main_memory = [] #原本是打算全依赖临时对话输入，但实测发现main被调用的频率不高，就添加记忆
 
-        self.set_temp_dialog_input(content)
+        self.set_temp_dialog_input(f"请求时间:{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')},请求内容:{content}")
         self.push_context(user,content)
         # ==================== 中间过程发送的临时存放 ====================
         self.send_images = []

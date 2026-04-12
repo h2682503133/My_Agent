@@ -9,7 +9,12 @@
   "image_server": {
     "host": "0.0.0.0",
     "port": 5102,
-    "asset_dir": "assets"
+    "asset_dir": "roaming//assets"
+  },
+  "timer_task": {
+  "host": "127.0.0.1",
+  "port": 5103,
+  "task_dir": "roaming//tasks"
   },  
   "channels": {
     "qq": {

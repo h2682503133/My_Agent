@@ -7,14 +7,18 @@ from core.Task.task_creator import app
 #from qq_bridge import run_qq_bot
 from core.logger import gateway_log
 from core.Gateway.image_server import start_local_image_server
+from core.Task.timer_task import start_timer_service
 if __name__ == "__main__":
     with open("config/gateway_setting.json", "r", encoding="utf-8") as f:
         CONFIG = json.load(f)
     print("✅ 启动调度中心...")
     start_scheduler()
     print("✅ 启动 AI端 服务...")
+    
     #启动图像服务
     start_local_image_server()
+    #启动定时任务服务
+    start_timer_service()
 
     # 从配置读取
     host = CONFIG["main"]["host"]

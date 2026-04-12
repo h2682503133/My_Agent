@@ -81,6 +81,8 @@ class ToolManager:
 
             except Exception as e:
                 return f"执行异常：{str(e)}"
+        def list_workspace(task: Task):
+            return shell(task,[f"ls -R ."])
         def fetch(task: Task,url: str, method="GET", data=None):
             try:
                 r = requests.get(url, timeout=10) if method.upper() == "GET" else requests.post(url, json=data, timeout=10)
@@ -267,6 +269,7 @@ class ToolManager:
 
         # 注册原生工具
         self.register_tool("shell", shell)
+        self.register_tool("list-workspace", list_workspace)
         self.register_tool("fetch", fetch)
         self.register_tool("web-search", websearch)
         self.register_tool("file-read", file_read)

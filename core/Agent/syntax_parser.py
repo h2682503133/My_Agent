@@ -1,88 +1,117 @@
 from core.logger import chat_log
+from datetime import datetime
+import re
+
 def clean_ai_thinking(text: str) -> str:
     """彻底清洗 AI 思考内容，防止语法解析误触发"""
-    def clean_ai_thinking(text: str) -> str:
-        if not text or not isinstance(text, str):
-            return ""
-    
-    # 🔥 核心：只保留 </think> 之后的内容
+    if not text or not isinstance(text, str):
+        return ""
+    # 只保留 </think> 之后的内容
     if "</think>" in text:
         text = text.split("</think>")[-1]
-
     return text.strip()
 
+def to_timestamp(time_str: str) -> float:
+    """时间字符串 2025-12-31 23:59:59 转时间戳"""
+    dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    return dt.timestamp()
 
 def parse_syntax(self, task):
     raw_text = task.consume_temp_dialog_output()
     raw_text = clean_ai_thinking(raw_text)
+    full_text = raw_text.strip()
 
-    reply = raw_text.strip()
+    reply = full_text
     command = ""
     agent_call = None
-    tool_call = None  # 新增:工具调用结构
+    tool_call = None
     question = None
+    timer_task = None  # 🔥 新增：定时任务结构
 
-    lines = raw_text.splitlines()
+    # ==============================
+    # 全局替换全角符号，统一格式
+    # ==============================
+    full_text = full_text.replace("：", ":")
 
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    # ==============================
+    # 1. 提取：对话:target|content
+    # ==============================
+    match_agent = re.search(r"对话:(.*?)\|(.*)", full_text)
+    if match_agent:
+        target_id = match_agent.group(1).strip()
+        content = match_agent.group(2).strip()
+        agent_call = {
+            "target_id": target_id,
+            "content": content
+        }
 
-        # 统一冒号
-        line = line.replace("：", ":")
+    # ==============================
+    # 2. 提取：工具调用:xxx|xxx|xxx
+    # ==============================
+    match_tool = re.search(r"工具调用:(.*)", full_text)
+    if match_tool:
+        line = match_tool.group(1).strip()
+        memory = task.consume_temp_dialog_input() or "本条记录因不知名原因丢失"
+        memory += "\n调用了工具:" + line
+        task.tool_log.append("调用了工具:" + line)
+        task.push_context(self, memory)
 
-        # 调用其他智能体
-        if "对话:" in line:
-            # 切割掉 "对话:" 之前的所有内容，只保留后面的
-            idx = line.find("对话:")
-            line = line[idx:] 
+        parts = line.split("|")
+        tool_name = parts[0].strip()
+        args = [p.strip() for p in parts[1:] if p.strip()]
+        tool_call = {
+            "tool": tool_name,
+            "args": args
+        }
 
-            # 你原来的逻辑不变
-            content = line.replace("对话:", "").strip()
-            parts = [p.strip() for p in content.split("|") if p.strip()]
-            if len(parts) >= 2:
-                agent_call = {
-                    "target_id": parts[0],
-                    "content": parts[1]
-                }
+    # ==============================
+    # 3. 提取：询问:xxx
+    # ==============================
+    match_question = re.search(r"询问:(.*)", full_text)
+    if match_question:
+        question = match_question.group(1).strip()
 
-        # 工具调用（格式:工具名|参数1|参数2...）
-        elif "工具调用:" in line:
-            # 自动去掉智能体加的「工具调用:」前缀，兼容两种格式
-            line = line.replace("工具调用:", "").strip()
+    # ==============================
+    # 4. 提取：切换:xxx
+    # ==============================
+    match_switch1 = re.search(r"切换:(.*)", full_text)
+    if match_switch1:
+        agent_id = match_switch1.group(1).strip()
+        self.set_default_agent(agent_id)
 
-            memory = task.consume_temp_dialog_input()
-            memory = memory if memory else "本条记录因不知名原因丢失"
-            memory = memory + "\n调用了工具:" + line
-            task.tool_log.append("调用了工具:" + line)
-            task.push_context(self, memory)
-            # 剩余逻辑完全不变，解析标准工具格式
-            parts = line.split("|")
-            tool_name = parts[0].strip()
-            args = [p.strip() for p in parts[1:] if p.strip()]
-            tool_call = {
-                "tool": tool_name,
-                "args": args
+    match_switch2 = re.search(r"切换到(\w+)智能体", full_text)
+    if match_switch2:
+        agent_id = match_switch2.group(1).strip()
+        self.set_default_agent(agent_id)
+
+    # ==============================
+    # 🔥 5. 新增：定时任务:类型|时间|内容
+    # ==============================
+    match_timer = re.search(r"定时任务:(.*?)\|(.*?)\|(.*)", full_text)
+    if match_timer:
+        task_type = match_timer.group(1).strip()
+        time_str = match_timer.group(2).strip()
+        content = match_timer.group(3).strip()
+
+        try:
+            trigger_ts = to_timestamp(time_str)
+            timer_task = {
+                "task_type": task_type,
+                "time_str": time_str,
+                "trigger_timestamp": trigger_ts,
+                "content": content
             }
-        elif "询问:" in line:
-            question = line.strip()
+        except:
+            pass
 
-        # 切换智能体
-        elif line.startswith("切换:"):
-            agent_id = line.replace("切换:", "").strip()
-            self.set_default_agent(agent_id)
-        elif "切换到" in line and "智能体" in line:
-            import re
-            match = re.search(r"切换到(\w+)智能体", line)
-            if match:
-                agent_id = match.group(1).strip()
-                self.set_default_agent(agent_id)
-    # 只返回结构化数据，不执行
+    # ==============================
+    # 返回结构化数据（不变）
+    # ==============================
     task.set_temp_dialog_output({
         "final_reply": reply,
-        "reply": raw_text.strip(),
-        "tool_call": tool_call,    # 工具:名称+参数
-        "agent_call": agent_call,  # 对话:目标+内容
-        "question": question
+        "reply": full_text,
+        "tool_call": tool_call,
+        "agent_call": agent_call,
+        "question": question,
+        "timer_task": timer_task  
     })

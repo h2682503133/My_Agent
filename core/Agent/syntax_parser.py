@@ -87,20 +87,21 @@ def parse_syntax(self, task):
     # ==============================
     # 🔥 5. 新增：定时任务:类型|时间|内容
     # ==============================
-    match_timer = re.search(r"定时任务:(.*?)\|(.*?)\|(.*)", full_text)
+    match_timer = re.search(r"定时任务:([^|]+)\|([^|]+)(?:\|(.+))?", full_text)
     if match_timer:
         task_type = match_timer.group(1).strip()
-        time_str = match_timer.group(2).strip()
-        content = match_timer.group(3).strip()
-
+        content = match_timer.group(2).strip()
+        time_str = match_timer.group(3).strip() if match_timer.group(3) else "2026-01-31 00:00:00"
         try:
             trigger_ts = to_timestamp(time_str)
+            print(trigger_ts)
             timer_task = {
                 "task_type": task_type,
                 "time_str": time_str,
                 "trigger_timestamp": trigger_ts,
                 "content": content
             }
+            print(timer_task)
         except:
             pass
 

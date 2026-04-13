@@ -10,7 +10,7 @@ from collections import OrderedDict
 from core.Task.Task import Task
 from core.Agent.response_parser import parse_response
 from core.Agent.syntax_parser import parse_syntax
-from core.Task.timer_task import add_timer_task
+from core.Task.timer_task import add_timer_task,list_user_tasks,delete_user_task
 import openviking as ov
 from openviking.message import TextPart
 from core.Agent.Tool_manager import tool_manager  # 你的工具管理器
@@ -373,16 +373,24 @@ class Agent:
             task.caller = task.user
             Task.save_pending_task(task.user.id, task)
         elif result["timer_task"]:
-            return_message=add_timer_task(
-            user_id=task.user.id,
-            channel_id = task.user.session_id.split("_")[0],
-            callback_port=task.user.output.callback_port,
-            trigger_timestamp=result["timer_task"]["trigger_timestamp"],
-            task_type=result["timer_task"]["task_type"],
-            content=result["timer_task"]["content"]
-        )
-            debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{result["timer_task"]["trigger_timestamp"]}')
-            task.set_temp_dialog_output(return_message)
+            if result["timer_task"]["task_type"]=="query":
+                task.push_context(self,f"{content}<{self.id}>{result['final_reply']}")
+                task.set_temp_dialog_output(list_user_tasks(task.user.id))
+                debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{task.user.id}')
+            elif result["timer_task"]["task_type"]=="delete":
+                task.set_temp_dialog_output(delete_user_task(task.user.id,result["timer_task"]["content"]))
+                debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{result["timer_task"]["trigger_timestamp"]}')
+            else:
+                return_message=add_timer_task(
+                user_id=task.user.id,
+                channel_id = task.user.session_id.split("_")[0],
+                callback_port=task.user.output.callback_port,
+                trigger_timestamp=result["timer_task"]["trigger_timestamp"],
+                task_type=result["timer_task"]["task_type"],
+                content=result["timer_task"]["content"]
+            )
+                debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{result["timer_task"]["trigger_timestamp"]}')
+                task.set_temp_dialog_output(return_message)
 
     # ==================== 智能体调用 ====================
     def call_agent(self, target_agent_id, task:Task):

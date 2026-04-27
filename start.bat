@@ -81,6 +81,7 @@ if /i "%cmd%"=="qq" (
 )
 if /i "%cmd%"=="web" (
     start "web窗口" cmd /k "%PY_CMD% core\\Gateway\\web_server.py"
+    start "ws窗口" cmd /k "%PY_CMD% core\\Gateway\\ws_server.py"
     goto console
 )
 

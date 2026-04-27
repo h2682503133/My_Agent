@@ -68,13 +68,12 @@
         </div>
 
         <script>
-            // 增强版：支持 文字 + 图片
+            // 完全保留你原版的消息展示逻辑
             function addMsg(role, text, images = []) {
                 text = text.replace(/\\n/g, "\n");
                 let chat = document.getElementById('chat');
                 let cls = role === 'user' ? 'user msg' : 'agent msg';
                 
-                // 拼接图片HTML
                 let imgHtml = "";
                 for (let url of images) {
                     imgHtml += `<img src="${url}" class="msg-img">`;
@@ -103,25 +102,29 @@
                 });
             }
 
-            // 监听 SSE 消息（已兼容图片）
-            const es = new EventSource('/queue/stream');
-            es.onmessage = function(e) {
+            // ==============================
+            // 只改这里：WebSocket 自动连接
+            // 无硬编码！同端口！同域名！
+            // ==============================
+            const ws = new WebSocket(`ws://${location.host}/ws`);
+
+            ws.onopen = () => {
+                console.log("连接成功！");
+            };
+
+            ws.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
-
-                    // 如果是排队信息
                     if ("waiting" in data) {
                         document.getElementById('queue-status').textContent = `当前排队：${data.waiting}`;
-                    }
-                    // 如果是 AI 回复（text + images）
-                    else if ("text" in data || "images" in data) {
+                    } else if ("text" in data || "images" in data) {
                         addMsg("agent", data.text || "", data.images || []);
                     }
-                } catch(err) {
-                    // 兼容旧版纯文本
+                } catch (err) {
                     addMsg("agent", e.data);
                 }
             };
+
         </script>
 
         <button onclick="logout()">切换用户/退出登录</button>

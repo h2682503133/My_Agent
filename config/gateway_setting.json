@@ -28,7 +28,7 @@
     },
     "web": {
       "id": "web",
-      "self_port": 5201
+      "self_port": 5210
     }
   },
   "flask_debug": false,

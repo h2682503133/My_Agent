@@ -30,7 +30,13 @@
     "method": "请求类型",
     "model": "模型名称",
     "temperature": "温度，越低越按设定，越高越自由",
-    "commit_limit": "session中有多少条记录才提交一次，用户和智能体均各算一条，为0不提交",
+    "commit_limit": "session中有多少条记录才提交一次，用户和智能体均各算一条，为0不提交，同时只加载session内容默认为90个对话",
+    "model_params": {
+      "options": {
+        "num_ctx": 131072,     
+        "num_predict": 8192    
+      }
+    },ollama模型上下文数限制
     "files": [
       "SOUL.md"
     ]

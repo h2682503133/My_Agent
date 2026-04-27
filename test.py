@@ -1,29 +1,16 @@
-import sys
-from pathlib import Path
-import openviking as ov
+import asyncio
+import websockets
+import json
 
-# ======================
-# 你只需要确保运行在项目根目录即可
-# ======================
-def main(skill_slug):
+async def test_client():
+    uri = "ws://127.0.0.1:5211"
+    async with websockets.connect(uri) as websocket:
+        # 发送 user_id 认证
+        await websocket.send(json.dumps({"user_id": "1001"}))
+        print("已发送认证，等待消息...")
+        # 等待服务端推送消息
+        while True:
+            message = await websocket.recv()
+            print(f"收到消息: {message}")
 
-    # 路径：当前目录 / skills / 技能名 / SKILL.md
-    skill_file = Path.cwd() / "skills" / skill_slug / "SKILL.md"
-
-    if not skill_file.exists():
-        print(f"❌ 文件不存在：{skill_file}")
-        return
-
-    # 初始化 OpenViking（和你代码完全一致）
-    data_path = Path.cwd() / "viking_data"
-    client = ov.SyncOpenViking(path=str(data_path))
-    client.initialize()
-
-    print(f"开始导入：{skill_file}")
-
-    try:
-        result = client.add_skill(str(skill_file), wait=True)
-        print(f"✅ 导入成功：{result.get('uri', '')}")
-    except Exception as e:
-        print(f"❌ 导入失败：{str(e)}")
-main("qq")
+asyncio.run(test_client())

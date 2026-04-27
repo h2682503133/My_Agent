@@ -53,6 +53,7 @@ class Agent:
         self.load_config()
         self.build_system_prompt()
 
+        self.full_session_id = f"{self.id}_{self.session_id}"
         self.ov_client = GLOBAL_VIKING_CLIENT
         self.ov_session = self.ov_client.session(session_id=f"{self.id}_{self.session_id}")
 
@@ -61,12 +62,13 @@ class Agent:
     def _load_viking_session(self):
         print("加载viking")
         try:
-            # 单独开循环执行异步load，不影响主程序
-            asyncio.run(self.ov_session.load())
-            debug_log(f"加载历史会话成功: {self.id}_{self.session_id}")
+            self.ov_client.create_session(self.full_session_id)
         except:
-            debug_log("创建新会话")
-    
+            # 已存在就忽略
+            pass
+
+        asyncio.run(self.ov_session.load())
+        debug_log(f"加载成功: {self.full_session_id}")
     @classmethod
     def process_task(cls,task:Task):
         print(f"{task.user.id}的任务正被处理")
@@ -169,50 +171,78 @@ class Agent:
         Agent.default_agent[self.session_id]=agent_id
 
     def get_context_sync(self, query: str):
-        """同步版本：严格匹配真实返回结构，不丢内容、无报错"""
         try:
-            ctx = asyncio.run(
-                self.ov_session.get_context_for_search(
-                    query=query,
-                    max_messages=16
-                )
-            )
-
             messages = []
-            # 打印真实上下文，调试用
-            # print("真实ctx:", ctx)
+            commit_limit = self.config.get("commit_limit", 0) or 0
 
-            # 1. 最新归档历史（唯一的历史记录）
-            latest_archive = ctx.get("latest_archive_overview", "").strip()
-            if latest_archive:
-                messages.append({
-                    "role": "system",
-                    "content": f"历史记忆：{latest_archive}"
-                })
+            # ========================
+            # 模式 1：纯聊天（commit_limit = 0）
+            # 不使用任何归档总结，只保留原始干净对话
+            # ========================
+            if commit_limit == 0:
+                ctx = asyncio.run(
+                    self.ov_session.get_context_for_search(
+                        query=query,
+                        max_messages=6
+                    )
+                )
 
-            # 2. 当前会话消息（正确字段：current_messages）
-            for msg in ctx.get("current_messages", []):
-                if not msg.parts:
-                    continue
-                content = msg.parts[0].text
-                content = re.sub(r'</?think>', '', content).strip()
-                # 过滤无效前缀
-                if content and '智能体返回：' not in content:
+                for msg in ctx.get("current_messages", []):
+                    try:
+                        if not msg.parts:
+                            continue
+                        content = msg.parts[0].text
+                        content = re.sub(r'</?think>', '', content).strip()
+                        if content and "智能体返回：" not in content:
+                            messages.append({
+                                "role": msg.role,
+                                "content": content
+                            })
+                    except Exception:
+                        continue
+
+            # ========================
+            # 模式 2：任务/工具/解题（commit_limit > 0）
+            # ========================
+            else:
+                ctx = self.ov_client.get_session_context(self.full_session_id,token_budget=2048)
+
+                # 1. 最新归档记忆
+                latest_summary = ctx.get("latest_archive_overview", "").strip()
+                if latest_summary:
                     messages.append({
-                        "role": msg.role,
-                        "content": content
+                        "role": "system",
+                        "content": f"【长期记忆】\n{latest_summary}"
                     })
 
-            # 系统提示
-            if messages:
-                messages.insert(0, {
-                    "role": "system",
-                    "content": "以下是你和用户的历史对话记录，请根据上下文继续回答"
-                })
+                # 2. 更早的历史摘要
+                for arc in ctx.get("pre_archive_abstracts", []):
+                    abs_txt = arc.get("abstract", "").strip()
+                    if abs_txt:
+                        messages.append({
+                            "role": "system",
+                            "content": f"【过往记忆】{abs_txt}"
+                        })
+
+                # 3. 当前会话消息
+                for msg in ctx.get("messages", []):
+                    try:
+                        if not msg.get("parts"):
+                            continue
+                        text = msg["parts"][0]["text"].strip()
+                        text = re.sub(r'</?think>', '', text).strip()
+                        if text and "智能体返回：" not in text:
+                            messages.append({
+                                "role": msg["role"],
+                                "content": text
+                            })
+                    except Exception:
+                        continue
 
             return messages
+
         except Exception as e:
-            print("获取上下文异常:", e)
+            print("get_context_sync 异常:", e)
             return []
     # ========== 你原样的添加消息函数（完全不动） ==========
     def add_message(self, role: str, content: str):
@@ -250,7 +280,8 @@ class Agent:
 
     # ==================== 核心对话流程 ====================
     def send(self, task):
-        """单轮对话主流程（支持自调用）"""
+        #单轮对话主流程
+        #1.本次单轮对话请求(用户原始请求/自己的上次请求+回复内容/工具调用过程)
         content = task.consume_temp_dialog_input()
         if not isinstance(content, str):
             # 非字符串/None → 按你指定格式拼接
@@ -262,29 +293,29 @@ class Agent:
                     content = f"{content[0]}的请求：\n{content[1]},\n收到来自{content[2]}的回复：\n{content[3]}"
                     task.main_log.append(content)
                     if(content[0]=="main"):
-                        task.main_memory.append(content)
+                        task.main_memory.append(content)#存储入任务内的主程序任务记忆
             else:
                 content = "当你看到这条消息时，意味着出现某些问题导致输入为空了"
-        task.set_temp_dialog_input(content)
+        current_input_messages=[{"role": "system", "content": "以下为本次单轮对话内容"},{"role": "user", "content": f"<{task.caller.id}>" + content}]
+        task.set_temp_dialog_input(content)#存储回input用于工具调用记忆
         chat_log(f"{self.id}收到:\n{content}")
-        # 2. 同步获取上下文
-        context = self.get_context_sync(content)
+        # 2. viking记忆(长期记忆+session记忆)
+        long_context_message =[{"role": "system","content": "以下是你和用户的历史对话记录，请根据上下文继续回答"}]+self.get_context_sync(content)
 
-        # 1. 添加用户输入到历史
-        messages = [{"role": "system", "content": self.system_prompt}] + context
+        # 3.环境提示词
+        system_prompt_messages = [{"role": "system", "content": self.system_prompt}]
 
-        #目前的对话内容构成 环境提示词+viking记忆(长期记忆+session记忆)+任务记忆(仅main)+用户原始请求+本次单轮对话请求(用户原始请求/自己的上次请求+回复内容/工具调用过程)
-
+        # 4.任务记忆(仅main)
+        task_memory_messages=[]
         if self.id == "main":
-            memory="以下是你在本次任务中的记忆:"
+            task_memory="以下是你在本次任务中的记忆:"
             for i in task.main_memory:
-                memory+="\n"+i
-            messages += [{"role": "system", "content": memory }]
-        
-        messages += [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分\n下面是该任务用户原始请求"}] + [
-            {"role": "user", "content": f"<{task.user.id}>" + task.content},
-            {"role": "system", "content": "以下为本次单轮对话内容"},
-            {"role": "user", "content": f"<{task.caller.id}>" + content}]
+                task_memory+="\n"+i
+            task_memory_messages = [{"role": "system", "content": task_memory }]
+        # 5.用户原始请求
+        user_input_messages = [{"role": "system", "content": "以下为本次请求对话，请着重于下面部分\n下面是该任务用户原始请求"},{"role": "user", "content": f"<{task.user.id}>" + task.content}]
+        #目前的对话内容构成 viking记忆(长期记忆+session记忆)+任务记忆(仅main)+环境提示词+用户原始请求+本次单轮对话请求(用户原始请求/自己的上次请求+回复内容/工具调用过程)
+        messages=long_context_message+task_memory_messages+system_prompt_messages+user_input_messages+current_input_messages
         # 2. 调用大模型
         # 读取配置
         api_url = self.config["api_url"]
@@ -304,17 +335,18 @@ class Agent:
                 "temperature" : self.config.get("temperature", 1),
                 "stream": False
         }
-
+        model_params = self.config.get("model_params", {})
+        json_data.update(model_params)
         resp = None
-        success = False
+
 
         # 500 重试 1 次
         for attempt in range(2):
             try:
                 if method.upper() == "GET":
-                    resp = requests.get(api_url, headers=headers, json=json_data, timeout=150)
+                    resp = requests.get(api_url, headers=headers, json=json_data, timeout=1500)
                 else:
-                    resp = requests.post(api_url, headers=headers, json=json_data, timeout=150)
+                    resp = requests.post(api_url, headers=headers, json=json_data, timeout=1500)
 
                 if resp.status_code < 500:
                     success = True
@@ -323,6 +355,8 @@ class Agent:
             except Exception as e:
                 print(f"请求异常：{str(e)}")
                 continue
+        print(messages)
+        print(resp.json())
 
         task.set_temp_dialog_output(resp)
         parse_response(self,task)
@@ -368,7 +402,7 @@ class Agent:
             debug_log(f"[询问] {self.id}")
             task.status = "pause"
             task.push_context(self,f"{content}<{self.id}>{result['question']}")
-            task.set_temp_dialog_input(f"{self.id}:{result['question']}")
+            task.set_temp_dialog_input(f"[询问]{self.id}:{result['question']}")
             task.user.send(task)
             task.caller = task.user
             Task.save_pending_task(task.user.id, task)
@@ -390,6 +424,7 @@ class Agent:
                 content=result["timer_task"]["content"]
             )
                 debug_log(f'[timer_task]:[{result["timer_task"]["task_type"]}]{result["timer_task"]["trigger_timestamp"]}')
+                task.push_context(self,f"{content}<{self.id}>{result['final_reply']}")
                 task.set_temp_dialog_output(return_message)
 
     # ==================== 智能体调用 ====================

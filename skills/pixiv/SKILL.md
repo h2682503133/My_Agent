@@ -75,3 +75,4 @@ python3 scripts/pixiv.py download --id 12345678
 - **403 / 图片直链打不开**：pximg 防盗链，直接外链可能失败。优先本地下载后发送。  
 - **搜索无结果或接口异常**：`Cookie` 失效，更新 `config.yaml` 中的 `cookie`。  
 - **鉴权失效**：重新登录 Pixiv 获取最新 `PHPSESSID` 并更新配置 
+- **多关键词搜索失败**：用""将关键词包裹起来，如"键山雏 东方project"

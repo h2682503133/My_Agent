@@ -26,7 +26,7 @@ if __name__ == "__main__":
     flask_debug = CONFIG["flask_debug"]
     ip = get_local_ip()
 
-    gateway_log(f"服务启动：http://{ip}:{port}")
+    gateway_log(f"服务启动：http://{host}:{port}")
 
     # 用配置启动 Flask
     threading.Thread(

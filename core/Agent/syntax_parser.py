@@ -36,7 +36,7 @@ def parse_syntax(self, task):
     # ==============================
     # 1. 提取：对话:target|content
     # ==============================
-    match_agent = re.search(r"对话:(.*?)\|(.*)", full_text)
+    match_agent = re.search(r"对话:(.*?)\|(.*)", full_text,re.DOTALL)
     if match_agent:
         target_id = match_agent.group(1).strip()
         content = match_agent.group(2).strip()
@@ -67,7 +67,7 @@ def parse_syntax(self, task):
     # ==============================
     # 3. 提取：询问:xxx
     # ==============================
-    match_question = re.search(r"询问:(.*)", full_text)
+    match_question = re.search(r"询问:(.*)", full_text,re.DOTALL)
     if match_question:
         question = match_question.group(1).strip()
 
@@ -101,7 +101,6 @@ def parse_syntax(self, task):
                 "trigger_timestamp": trigger_ts,
                 "content": content
             }
-            print(timer_task)
         except:
             pass
 

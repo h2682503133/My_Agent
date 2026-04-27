@@ -80,7 +80,7 @@ def add_timer_task(
         try:
             test_payload = {
                 "user_id": user_id,
-                "text": "[系统] 定时任务已创建，通道正常",
+                "text": f"[定时任务] {task_type}:{content}",
                 "images": []
             }
             url = f"http://127.0.0.1:{callback_port}/send"
@@ -90,7 +90,7 @@ def add_timer_task(
             return f"定时任务创建成功：{task_type}，但测试通道失败，请告知用户"
         
         gateway_log(f"创建定时任务：{user_id} {task_type} {trigger_timestamp} {content}")
-        return f"定时任务创建成功：{task_type}，将在指定时间执行"
+        return f"定时任务{task_type}:{content}创建成功，将在指定时间执行"
 
     except Exception as e:
         gateway_log(f"定时任务创建失败：{user_id} {task_type} {trigger_timestamp} {content}")

@@ -73,7 +73,8 @@ def chat():
 def send_chat():
     print_full_request("发送消息 /chat POST")
     user_id = session.get("user_id")
-    text = request.json.get("msg")
+    if not user_id:
+        return "", 401
 
     import requests
     requests.post(f"http://{MAIN_HOST}:{MAIN_PORT}/submit_task", json={

@@ -1,9 +1,8 @@
 {
   "main": {
-    "api_url": "https://api.moonshot.cn/v1/chat/completions",
+    "api_url": "http://127.0.0.1:11434/api/chat",
     "method": "POST",
-    "model": "kimi-k2-thinking",
-    "api_key": "sk-",
+    "model": "qwen3-vl:235b-cloud",
     "temperature": 1,
     "files": [
       "SOUL.md"
